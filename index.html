@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-<html lang='fr'>
+<html lang="fr">
 <head>
-<meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'>
-<title>Poker Notes – iPhone (Stable)</title>
-<meta name='apple-mobile-web-app-capable' content='yes'>
-<meta name='apple-mobile-web-app-status-bar-style' content='default'>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Poker Notes – iPhone</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 :root{--bg:#0e0f10;--fg:#f2f2f2;--muted:#a5a7ab;--card:#1a1c1f;--accent:#4caf50;--danger:#e53935;--blue:#2196f3;--outline:#2a2d31}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Helvetica Neue",Arial}
+a{color:#7cc0ff;text-decoration:none}
 .app{max-width:700px;margin:0 auto;padding:12px 12px 84px}
 .topbar{position:sticky;top:0;background:var(--bg);padding:8px 12px 10px;border-bottom:1px solid var(--outline);z-index:5}
 .tabs{display:flex;gap:8px;overflow-x:auto;padding:6px 0}
@@ -23,7 +24,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-a
 .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .card{background:var(--card);border:1px solid var(--outline);border-radius:14px;padding:12px}
 input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--outline);background:#101214;color:var(--fg);font-size:16px}
-textarea{min-height:96px;resize:vertical}
+textarea{min-height:110px;resize:vertical}
 .chip{padding:6px 10px;border-radius:999px;border:1px solid var(--outline);background:#121417;font-size:14px;cursor:pointer;user-select:none}
 .list{display:flex;flex-direction:column;gap:8px}
 .player-row{display:flex;gap:10px;align-items:center}
@@ -43,161 +44,159 @@ textarea{min-height:96px;resize:vertical}
 .sheet{width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px}
 .toolbar{display:flex;gap:8px;overflow:auto}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-#diag{position:fixed;right:10px;bottom:10px;z-index:50}
-#diagPanel{position:fixed;left:10px;right:10px;bottom:70px;max-height:45vh;overflow:auto;background:#0b0c0d;border:1px solid var(--outline);border-radius:12px;padding:10px;display:none}
-#diagPanel.open{display:block}
-#diagText{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#cfe3ff}
 </style>
 </head>
 <body>
-  <div class='topbar'>
-    <div class='tabs'>
-      <div class='tab active' data-tab='table'>Table</div>
-      <div class='tab' data-tab='players'>Joueurs</div>
-      <div class='tab' data-tab='export'>Export / Import</div>
-      <div class='tab' data-tab='help'>Aide</div>
+  <div class="topbar">
+    <div class="tabs">
+      <div class="tab active" data-tab="table">Table</div>
+      <div class="tab" data-tab="players">Joueurs</div>
+      <div class="tab" data-tab="export">Export / Import</div>
+      <div class="tab" data-tab="help">Aide</div>
     </div>
   </div>
-  <div class='app'>
-    <div id='table' class='section active'>
-      <div class='card'>
-        <div class='row' style='justify-content:space-between;gap:10px;flex-wrap:wrap'>
-          <div class='row' style='gap:6px;align-items:center'>
+  <div class="app">
+    <div id="table" class="section active">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div class="row" style="gap:6px;align-items:center;">
             <strong>Configuration :</strong>
-            <select id='seatCount'><option value='6'>6-max</option><option value='8'>8-max</option><option value='9' selected>9-max</option><option value='10'>10-max</option></select>
-            <input id='tableName' placeholder='Nom de la table / Session'>
+            <select id="seatCount">
+              <option value="6">6-max</option>
+              <option value="8">8-max</option>
+              <option value="9" selected>9-max</option>
+              <option value="10">10-max</option>
+            </select>
+            <input id="tableName" placeholder="Nom de la table / Session" />
           </div>
-          <div class='row'><button class='btn' id='btnClearTable'>Vider la table</button></div>
+          <div class="row"><button class="btn" id="btnClearTable">Vider la table</button></div>
         </div>
       </div>
-      <div class='spacer'></div>
-      <div class='table-wrap'>
-        <div class='table-circle' id='tableCircle'></div>
-        <div id='seatsContainer'></div>
+      <div class="spacer"></div>
+      <div class="table-wrap">
+        <div class="table-circle" id="tableCircle"></div>
+        <div id="seatsContainer"></div>
       </div>
-      <div class='spacer'></div>
-      <div class='card'>
-        <div class='toolbar' id='quickTagsBar'></div>
-        <div class='muted' style='font-size:12px'>Astuce: appui long (450 ms) → note rapide. Tap bref → assigner / ouvrir.</div>
+      <div class="spacer"></div>
+      <div class="card">
+        <div class="toolbar" id="quickTagsBar"></div>
+        <div class="muted" style="font-size:12px">Tap bref → assigner / ouvrir. Appui long (0,5 s) → note rapide.</div>
       </div>
     </div>
 
-    <div id='players' class='section'>
-      <div class='row'><input id='searchInput' placeholder='Rechercher par nom, tag...'><button class='btn' id='btnAddPlayer'>Ajouter</button></div>
-      <div class='spacer'></div>
-      <div class='list' id='playersList'></div>
+    <div id="players" class="section">
+      <div class="row">
+        <input id="searchInput" placeholder="Rechercher par nom, tag..." />
+        <button class="btn" id="btnAddPlayer">Ajouter</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="list" id="playersList"></div>
     </div>
 
-    <div id='export' class='section'>
-      <div class='card'>
-        <h3>Export</h3><p class='muted'>Fichier .json — local, rien n’est envoyé.</p>
-        <div class='row'>
-          <button class='btn btn-primary' id='btnExport'>Exporter .json</button>
-          <button class='btn' id='btnCopy'>Copier JSON</button>
+    <div id="export" class="section">
+      <div class="card">
+        <h3>Export</h3>
+        <p class="muted">Fichier .json — local, rien n’est envoyé.</p>
+        <div class="row">
+          <button class="btn btn-primary" id="btnExport">Exporter .json</button>
+          <button class="btn" id="btnCopy">Copier JSON</button>
         </div>
-        <div id='copyFallback' class='muted' style='display:none;margin-top:8px'>
+        <div id="copyFallback" class="muted" style="display:none;margin-top:8px">
           <div>Copie non disponible. Sélectionne manuellement :</div>
-          <textarea id='jsonArea' readonly></textarea>
+          <textarea id="jsonArea" readonly></textarea>
         </div>
       </div>
-      <div class='spacer'></div>
-      <div class='card'>
+      <div class="spacer"></div>
+      <div class="card">
         <h3>Import</h3>
-        <input type='file' id='importFile' accept='application/json'>
-        <div class='row'>
-          <button class='btn' id='btnImport'>Importer</button>
-          <button class='btn btn-danger' id='btnWipe'>Effacer toutes les données</button>
+        <input type="file" id="importFile" accept="application/json" />
+        <div class="row">
+          <button class="btn" id="btnImport">Importer</button>
+          <button class="btn btn-danger" id="btnWipe">Effacer toutes les données</button>
         </div>
       </div>
     </div>
 
-    <div id='help' class='section'>
-      <div class='card'><h3>Conseils</h3>
-        <ul><li>Tout est local (localStorage).</li><li>Photo: ouvre l’appareil photo iOS.</li><li>Sans HTTPS, “Copier” peut être bloqué → textarea de secours.</li></ul>
+    <div id="help" class="section">
+      <div class="card">
+        <h3>Conseils</h3>
+        <ul>
+          <li>Tout reste sur l’appareil (localStorage).</li>
+          <li>Photo : pellicule OU appareil (pas d’obligation de photo en direct).</li>
+          <li>Si la copie JSON est refusée, utilisez le textarea de secours.</li>
+        </ul>
       </div>
     </div>
-  </div>
-
-  <button id='diag' class='btn'>⚙️ Diagnostic</button>
-  <div id='diagPanel'>
-    <div class='row' style='justify-content:space-between'>
-      <div>Journal</div>
-      <div class='row'><button class='btn' id='diagCopy'>Copier</button><button class='btn' id='diagClose'>Fermer</button></div>
-    </div>
-    <div id='diagText'></div>
   </div>
 
   <!-- Player Modal -->
-  <div class='modal' id='playerModal'>
-    <div class='sheet'>
-      <div class='row' style='justify-content:space-between;align-items:center'>
-        <h3 id='pmTitle'>Joueur</h3>
-        <button class='btn btn-danger' id='pmDelete'>Supprimer</button>
+  <div class="modal" id="playerModal">
+    <div class="sheet">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 id="pmTitle">Joueur</h3>
+        <button class="btn btn-danger" id="pmDelete">Supprimer</button>
       </div>
-      <div class='spacer'></div>
-      <div class='two'>
-        <div><input id='pmName' placeholder='Nom / Pseudo'></div>
-        <div><input id='pmAlias' placeholder='Alias court'></div>
+      <div class="spacer"></div>
+      <div class="two">
+        <div><input id="pmName" placeholder="Nom / Pseudo" /></div>
+        <div><input id="pmAlias" placeholder="Alias court (facultatif)" /></div>
       </div>
-      <div class='spacer'></div>
-      <div class='row' style='align-items:center;gap:12px'>
-        <img id='pmAvatar' class='avatar' alt='photo'>
-        <input type='file' id='pmPhoto' accept='image/*' capture='environment'>
+      <div class="spacer"></div>
+      <div class="row" style="align-items:center;gap:12px">
+        <img id="pmAvatar" class="avatar" alt="photo"/>
+        <!-- capture retiré pour autoriser la photothèque -->
+        <input type="file" id="pmPhoto" accept="image/*" />
       </div>
-      <div class='spacer'></div>
-      <div class='card'><div class='toolbar' id='pmTagList'></div></div>
-      <div class='spacer'></div>
-      <textarea id='pmNotes' placeholder='Reads, sizings, leaks, tells...'></textarea>
-      <div class='spacer'></div>
-      <div class='two'>
-        <input id='pmLastSeenWhere' placeholder='Lieu (ex: Estoril…)'>
-        <input id='pmLastSeenWhen' type='date'>
+      <div class="spacer"></div>
+      <div class="card"><div class="toolbar" id="pmTagList"></div></div>
+      <div class="spacer"></div>
+      <textarea id="pmNotes" placeholder="Reads, sizings, leaks, tells..."></textarea>
+      <div class="spacer"></div>
+      <div class="two">
+        <input id="pmLastSeenWhere" placeholder="Lieu (ex: WSOP-C, Estoril...)" />
+        <input id="pmLastSeenWhen" type="date" />
       </div>
-      <div class='spacer'></div>
-      <div class='row'><button class='btn btn-primary' id='pmSave'>Enregistrer</button><button class='btn' id='pmClose'>Fermer</button></div>
+      <div class="spacer"></div>
+      <div class="row"><button class="btn btn-primary" id="pmSave">Enregistrer</button><button class="btn" id="pmClose">Fermer</button></div>
     </div>
   </div>
 
   <!-- Seat Quick Note Modal -->
-  <div class='modal' id='seatNoteModal'>
-    <div class='sheet'>
-      <h3 id='snmTitle'>Note rapide – Siège</h3>
-      <textarea id='snmText' placeholder='Ex: Limp UTG, call 3bet OOP, donk 1/2, show KTo...'></textarea>
-      <div class='spacer'></div>
-      <div class='row'><button class='btn btn-primary' id='snmSave'>Ajouter</button><button class='btn' id='snmClose'>Fermer</button></div>
+  <div class="modal" id="seatNoteModal">
+    <div class="sheet">
+      <h3 id="snmTitle">Note rapide – Siège</h3>
+      <textarea id="snmText" placeholder="Ex: Limp UTG, call 3bet OOP, donk 1/2, show KTo..."></textarea>
+      <div class="spacer"></div>
+      <div class="row"><button class="btn btn-primary" id="snmSave">Ajouter</button><button class="btn" id="snmClose">Fermer</button></div>
     </div>
   </div>
 
 <script>
 (function(){
-  const logEl=document.getElementById('diagText');
-  const log=(...a)=>{ const msg=a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '); logEl.textContent += msg+"\n"; };
-  log("secureContext:", window.isSecureContext, "ua:", navigator.userAgent);
-
-  document.getElementById('diag').onclick=()=> document.getElementById('diagPanel').classList.toggle('open');
-  document.getElementById('diagClose').onclick=()=> document.getElementById('diagPanel').classList.remove('open');
-  document.getElementById('diagCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(logEl.textContent); alert("Journal copié."); }catch(e){ alert("Copie du journal impossible."); } };
-
   const LS_KEY='pokerNotesDataV1';
   const defaultTags=["Reg","Recrea","CS","LAG","TAG","NIT","Whale","Maniac","Tilt","Shorty","GTO-ish","Spewy","Passive","Aggro","HeroCall","Overfold","Underbluff","Overbluff"];
   let state={players:{},seats:{count:9,tableName:"",map:{}}};
+
   const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
   const uid=()=>Math.random().toString(36).slice(2,10);
-  const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein."); log("save error", e.message);} };
-  const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players&&o.seats) state=o; }catch(e){ log("load parse", e.message);} } };
+  const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein. Exporte puis nettoie."); } };
+  const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players && o.seats) state=o; }catch(e){} } };
 
+  // Tabs
   $$('.tab').forEach(t=>t.addEventListener('click',()=>{
     $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
     const id=t.dataset.tab; $$('.section').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active');
     if(id==='players') renderPlayers(); if(id==='table') drawSeats(true);
   }));
 
+  // Quick tags
   function renderQuickTags(){
     const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
     defaultTags.forEach(tag=>{
       const b=document.createElement('div'); b.className='chip'; b.textContent=tag;
       b.onclick=()=>{
-        const sel=prompt("Ajouter ce tag à quel siège ? (numéro)"); const seatIdx=parseInt(sel,10);
+        const sel=prompt("Ajouter ce tag à quel siège ? (numéro)");
+        const seatIdx=parseInt(sel,10);
         if(!Number.isFinite(seatIdx)) return;
         const seat=state.seats.map[seatIdx];
         if(!seat||!seat.playerId){ alert("Aucun joueur assigné à ce siège."); return; }
@@ -208,29 +207,48 @@ textarea{min-height:96px;resize:vertical}
     });
   }
 
+  // Seats
   function initSeats(n){ state.seats.count=n; state.seats.map={}; for(let i=1;i<=n;i++) state.seats.map[i]={playerId:null,notes:[]}; }
 
   function drawSeats(retry){
-    document.getElementById('seatCount').value=String(state.seats.count);
+    const n=state.seats.count;
+    document.getElementById('seatCount').value=String(n);
     document.getElementById('tableName').value=state.seats.tableName||'';
     const cont=document.getElementById('seatsContainer'); cont.innerHTML='';
     let w=cont.getBoundingClientRect().width; if(w===0 && retry){ requestAnimationFrame(()=>drawSeats(false)); return; } if(w===0) w=320;
-    const center=w/2, n=state.seats.count;
+    const center=w/2;
+
     for(let i=1;i<=n;i++){
       const seat=state.seats.map[i]||{playerId:null,notes:[]};
       const el=document.createElement('div'); el.className='seat'+(seat.playerId?' assigned':'');
       const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-60;
       const x=center+r*Math.cos(rad)-39, y=center+r*Math.sin(rad)-39; el.style.left=x+'px'; el.style.top=y+'px';
+
       const pos=document.createElement('div'); pos.className='pos'; pos.textContent=i; el.appendChild(pos);
       const name=document.createElement('div'); name.className='name'; const p=seat.playerId?state.players[seat.playerId]:null; name.textContent=p?(p.alias||p.name||'—'):'Assign.'; el.appendChild(name);
       const note=document.createElement('div'); note.className='note'; note.textContent=(seat.notes&&seat.notes[seat.notes.length-1])||''; el.appendChild(note);
-      let timer=null;
-      const start=()=>{ timer=setTimeout(()=>openSeatNoteModal(i),450); };
+
+      // Gestes iOS robustes
+      let longPressed=false, timer=null;
+      const start=()=>{ longPressed=false; timer=setTimeout(()=>{ longPressed=true; timer=null; openSeatNoteModal(i); }, 500); };
       const cancel=()=>{ if(timer){ clearTimeout(timer); timer=null; } };
-      el.addEventListener('pointerdown', start, {passive:true});
-      el.addEventListener('pointerup', ()=>{ if(timer){ cancel(); if(seat.playerId){ openPlayerModal(seat.playerId,i);} else { assignSeat(i);} } }, {passive:true});
-      el.addEventListener('pointercancel', cancel, {passive:true});
-      el.addEventListener('pointerleave', cancel, {passive:true});
+
+      el.addEventListener('touchstart', start, {passive:true});
+      el.addEventListener('touchend', ()=>{ if(timer){ cancel(); openOrAssign(); } }, {passive:true});
+      el.addEventListener('touchmove', cancel, {passive:true});
+      el.addEventListener('touchcancel', cancel, {passive:true});
+
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup', ()=>{ if(timer){ cancel(); openOrAssign(); } });
+      el.addEventListener('mouseleave', cancel);
+      el.addEventListener('click', (e)=>{ if(longPressed){ e.preventDefault(); return; } openOrAssign(); });
+
+      function openOrAssign(){
+        const s=state.seats.map[i];
+        if(s.playerId){ openPlayerModal(s.playerId,i); }
+        else { assignSeat(i); }
+      }
+
       cont.appendChild(el);
     }
   }
@@ -238,10 +256,17 @@ textarea{min-height:96px;resize:vertical}
   window.addEventListener('orientationchange', ()=>setTimeout(()=>drawSeats(true), 200));
 
   function assignSeat(seatIdx){
-    const name=prompt("Nom/Pseudo à assigner ? (vide → choisir existant)");
-    if(name && name.trim()){ const id=createPlayer({name:name.trim(),alias:""}); state.seats.map[seatIdx].playerId=id; save(); drawSeats(); renderPlayers(); return; }
-    const players=Object.values(state.players); if(players.length===0){ alert("Aucun joueur enregistré."); return; }
-    const choice=prompt("Nom/alias exact:\n"+players.map(p=>p.alias||p.name||p.id).join(", ")); if(!choice) return;
+    const name=prompt("Nom/Pseudo du joueur à assigner ? (ou vide pour choisir existant)");
+    if(name && name.trim()){
+      const id=createPlayer({name:name.trim(),alias:""});
+      state.seats.map[seatIdx].playerId=id;
+      save(); drawSeats(); renderPlayers();
+      return;
+    }
+    const players=Object.values(state.players);
+    if(players.length===0){ alert("Aucun joueur enregistré."); return; }
+    const choice=prompt("Nom/alias exact:\n"+players.map(p=>p.alias||p.name||p.id).join(", "));
+    if(!choice) return;
     const found=players.find(p=>(p.name||"").toLowerCase()===choice.toLowerCase()||(p.alias||"").toLowerCase()===choice.toLowerCase());
     if(!found){ alert("Introuvable."); return; }
     state.seats.map[seatIdx].playerId=found.id; save(); drawSeats();
@@ -252,9 +277,14 @@ textarea{min-height:96px;resize:vertical}
     document.getElementById('snmText').value="";
     document.getElementById('seatNoteModal').classList.add('open');
     document.getElementById('snmSave').onclick=()=>{
-      const t=document.getElementById('snmText').value.trim(); if(t){
+      const t=document.getElementById('snmText').value.trim();
+      if(t){
         state.seats.map[seatIdx].notes.push(t);
-        const pid=state.seats.map[seatIdx].playerId; if(pid){ const p=state.players[pid]; p.notes=(p.notes||"")+(p.notes?"\n":"")+"("+new Date().toLocaleString()+") "+t; }
+        const pid=state.seats.map[seatIdx].playerId;
+        if(pid){
+          const p=state.players[pid];
+          p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t;
+        }
         save(); drawSeats(); renderPlayers();
       }
       document.getElementById('seatNoteModal').classList.remove('open');
@@ -262,6 +292,7 @@ textarea{min-height:96px;resize:vertical}
     document.getElementById('snmClose').onclick=()=> document.getElementById('seatNoteModal').classList.remove('open');
   }
 
+  // Players
   function createPlayer({name,alias}){ const id=uid(); state.players[id]={id,name,alias,tags:[],notes:"",lastSeenWhere:"",lastSeenWhen:"",photo:null}; save(); return id; }
 
   function renderPlayers(){
@@ -272,7 +303,7 @@ textarea{min-height:96px;resize:vertical}
       const text=[p.name,p.alias,(p.tags||[]).join(" "),p.notes].join(" ").toLowerCase(); if(q && !text.includes(q)) return;
       const row=document.createElement('div'); row.className='card'; row.innerHTML=`
         <div class="player-row">
-          <img class="avatar sm" src="${p.photo||''}" alt="">
+          <img class="avatar sm" src="${p.photo||''}" alt=""/>
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;gap:6px;align-items:center">
               <strong>${escapeHtml(p.alias||p.name||'—')}</strong>
@@ -315,9 +346,8 @@ textarea{min-height:96px;resize:vertical}
 
     document.getElementById('pmPhoto').onchange=async (e)=>{
       const file=e.target.files[0]; if(!file) return;
-      try{
-        const dataUrl=await fileToResizedDataURL(file,256,256); p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
-      }catch(err){ alert("Photo refusée."); log("photo error", err && err.message); }
+      const dataUrl=await fileToResizedDataURL(file,256,256);
+      p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
     };
   }
 
@@ -330,7 +360,7 @@ textarea{min-height:96px;resize:vertical}
     });
   }
 
-  function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) ); }
   function fileToResizedDataURL(file, maxW, maxH){
     return new Promise((resolve,reject)=>{
       const img=new Image(); const rdr=new FileReader();
@@ -356,7 +386,7 @@ textarea{min-height:96px;resize:vertical}
     const f=document.getElementById('importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
     const rdr=new FileReader(); rdr.onload=e=>{
       try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.'); state=obj; save(); drawSeats(); renderPlayers(); alert('Import OK.'); }
-      catch(err){ alert('Erreur import.'); log('import err', err && err.message); }
+      catch(err){ alert('Erreur import.'); }
     }; rdr.readAsText(f);
   };
   document.getElementById('btnWipe').onclick=()=>{
@@ -373,9 +403,9 @@ textarea{min-height:96px;resize:vertical}
   document.getElementById('btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
   document.getElementById('searchInput').oninput=renderPlayers;
 
-  try{ load(); }catch(e){ log('load err', e && e.message); }
-  if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
+  load(); if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
   renderQuickTags(); requestAnimationFrame(()=>drawSeats(true)); renderPlayers();
-  log('ready');
-})();</script>
-</body></html>
+})();
+</script>
+</body>
+</html>

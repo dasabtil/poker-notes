@@ -34,7 +34,7 @@ textarea{min-height:110px;resize:vertical}
 .muted{color:var(--muted)}.spacer{height:12px}
 .table-wrap{position:relative;aspect-ratio:1/1;width:100%;max-width:580px;margin:0 auto}
 .table-circle{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px dashed var(--outline)}
-.seat{position:absolute;width:86px;height:86px;border-radius:12px;border:1px solid var(--outline);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:4px;text-align:center;touch-action:manipulation}
+.seat{position:absolute;width:86px;height:86px;border-radius:12px;border:1px solid var(--outline);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:4px;text-align:center;touch-action:manipulation;cursor:pointer}
 .seat .pos{font-weight:600;font-size:12px;color:var(--muted)}
 .seat .name{font-size:12px;line-height:1.1}
 .seat .note{font-size:10px;color:var(--muted);max-height:2.2em;overflow:hidden}
@@ -124,7 +124,7 @@ textarea{min-height:110px;resize:vertical}
         <ul>
           <li>Tout reste sur l’appareil (localStorage).</li>
           <li>Photo : pellicule OU appareil.</li>
-          <li>Export .json = sauvegarde/backup (recommandé en fin de session).</li>
+          <li>Export .json = sauvegarde/backup (fin de session recommandé).</li>
         </ul>
       </div>
     </div>
@@ -236,24 +236,43 @@ textarea{min-height:110px;resize:vertical}
 
       const note=document.createElement('div'); note.className='note'; note.textContent=(seat.notes&&seat.notes[seat.notes.length-1])||''; el.appendChild(note);
 
-      // --- Gestes robustes (Pointer Events) ---
-      let longPressed=false, pressed=false, timer=null;
-      function onDown(e){ pressed=true; longPressed=false; timer=setTimeout(()=>{ longPressed=true; timer=null; openSeatNoteModal(i); }, 500); }
-      function onUp(e){ if(timer){ clearTimeout(timer); timer=null; } if(pressed && !longPressed) openOrAssign(); pressed=false; }
-      function onCancel(){ if(timer){ clearTimeout(timer); timer=null; } pressed=false; }
+      // --- Gestes iPhone robustes (touch + fallback souris) ---
+      let t0=0, longTimer=null, didLong=false, moved=false;
 
-      el.addEventListener('pointerdown', onDown, {passive:true});
-      el.addEventListener('pointerup', onUp, {passive:true});
-      el.addEventListener('pointercancel', onCancel, {passive:true});
-      el.addEventListener('pointerleave', onCancel, {passive:true});
-      // Neutralise le click fantôme WebKit/PWA
-      el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); }, {passive:false});
+      function startLongPress(){
+        didLong=false; moved=false;
+        longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500);
+      }
+      function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
+
+      // Touch
+      el.addEventListener('touchstart', (e)=>{ t0=Date.now(); startLongPress(); }, {passive:true});
+      el.addEventListener('touchmove', ()=>{ moved=true; clearTimers(); }, {passive:true});
+      el.addEventListener('touchcancel', ()=>{ clearTimers(); }, {passive:true});
+      el.addEventListener('touchend', ()=>{ 
+        const dt=Date.now()-t0; clearTimers();
+        if(!didLong && !moved && dt<350){ openOrAssign(); }
+        // si didLong==true, on a déjà ouvert la note rapide → ne rien faire
+      }, {passive:true});
+
+      // Souris (fallback desktop)
+      let mouseDown=false, t0m=0;
+      el.addEventListener('mousedown', (e)=>{ mouseDown=true; t0m=Date.now(); startLongPress(); });
+      el.addEventListener('mouseleave', ()=>{ mouseDown=false; clearTimers(); });
+      el.addEventListener('mouseup', (e)=>{ 
+        const dt=Date.now()-t0m; clearTimers();
+        if(mouseDown && !didLong && dt<350){ openOrAssign(); }
+        mouseDown=false;
+      });
+
+      // On neutralise le click fantôme des PWA iOS seulement si nécessaire (ici on le laisse passer)
 
       function openOrAssign(){
         const s=state.seats.map[i];
         if(s.playerId){ openPlayerModal(s.playerId,i); }
         else { assignSeat(i); }
       }
+
       cont.appendChild(el);
     }
   }

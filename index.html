@@ -195,7 +195,7 @@ textarea{min-height:110px;resize:vertical}
     defaultTags.forEach(tag=>{
       const b=document.createElement('div'); b.className='chip'; b.textContent=tag;
       b.addEventListener('click', ()=>{
-        const sel=prompt("Ajouter ce tag à quel siège ? (numéro)");
+        const sel=prompt("Ajouter/retirer ce tag à quel siège ? (numéro)");
         const seatIdx=parseInt(sel,10);
         if(!Number.isFinite(seatIdx)) return;
         const seat=state.seats.map[seatIdx];
@@ -230,28 +230,24 @@ textarea{min-height:110px;resize:vertical}
       // Avatar + nom
       const content=document.createElement('div'); content.style.display='flex'; content.style.flexDirection='column'; content.style.alignItems='center'; content.style.gap='2px';
       const p=seat.playerId?state.players[seat.playerId]:null;
-      if(p && p.photo){
-        const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; content.appendChild(av);
-      }
+      if(p && p.photo){ const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; content.appendChild(av); }
       const name=document.createElement('div'); name.className='name'; name.textContent=p?(p.alias||p.name||'—'):'Assign.'; content.appendChild(name);
       el.appendChild(content);
 
       const note=document.createElement('div'); note.className='note'; note.textContent=(seat.notes&&seat.notes[seat.notes.length-1])||''; el.appendChild(note);
 
-      // Gestes (tap vs long-press)
-      let longPressed=false, timer=null;
-      const start=()=>{ longPressed=false; timer=setTimeout(()=>{ longPressed=true; timer=null; openSeatNoteModal(i); }, 500); };
-      const cancel=()=>{ if(timer){ clearTimeout(timer); timer=null; } };
+      // --- Gestes robustes (Pointer Events) ---
+      let longPressed=false, pressed=false, timer=null;
+      function onDown(e){ pressed=true; longPressed=false; timer=setTimeout(()=>{ longPressed=true; timer=null; openSeatNoteModal(i); }, 500); }
+      function onUp(e){ if(timer){ clearTimeout(timer); timer=null; } if(pressed && !longPressed) openOrAssign(); pressed=false; }
+      function onCancel(){ if(timer){ clearTimeout(timer); timer=null; } pressed=false; }
 
-      el.addEventListener('touchstart', start, {passive:true});
-      el.addEventListener('touchend', ()=>{ if(timer){ cancel(); openOrAssign(); } }, {passive:true});
-      el.addEventListener('touchmove', cancel, {passive:true});
-      el.addEventListener('touchcancel', cancel, {passive:true});
-
-      el.addEventListener('mousedown', start);
-      el.addEventListener('mouseup', ()=>{ if(timer){ cancel(); openOrAssign(); } });
-      el.addEventListener('mouseleave', cancel);
-      el.addEventListener('click', (e)=>{ if(longPressed){ e.preventDefault(); return; } openOrAssign(); });
+      el.addEventListener('pointerdown', onDown, {passive:true});
+      el.addEventListener('pointerup', onUp, {passive:true});
+      el.addEventListener('pointercancel', onCancel, {passive:true});
+      el.addEventListener('pointerleave', onCancel, {passive:true});
+      // Neutralise le click fantôme WebKit/PWA
+      el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); }, {passive:false});
 
       function openOrAssign(){
         const s=state.seats.map[i];
@@ -283,8 +279,8 @@ textarea{min-height:110px;resize:vertical}
 
   // Notes rapides
   function openSeatNoteModal(seatIdx){
-    $('#snmTitle').textContent="Note rapide – Siège "+seatIdx;
-    const ta=$('#snmText'); ta.value=""; ta.focus();
+    document.getElementById('snmTitle').textContent="Note rapide – Siège "+seatIdx;
+    const ta=document.getElementById('snmText'); ta.value=""; ta.focus();
     const saveNote=()=>{
       const t=ta.value.trim();
       if(!t){ alert("Note vide."); return; }
@@ -295,20 +291,20 @@ textarea{min-height:110px;resize:vertical}
         p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t;
       }
       save(); drawSeats(); renderPlayers();
-      $('#seatNoteModal').classList.remove('open');
+      document.getElementById('seatNoteModal').classList.remove('open');
     };
-    $('#snmSave').onclick=saveNote;
+    document.getElementById('snmSave').onclick=saveNote;
     ta.onkeydown=(e)=>{ if(e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); saveNote(); } };
-    $('#snmClose').onclick=()=> $('#seatNoteModal').classList.remove('open');
-    $('#seatNoteModal').classList.add('open');
+    document.getElementById('snmClose').onclick=()=> document.getElementById('seatNoteModal').classList.remove('open');
+    document.getElementById('seatNoteModal').classList.add('open');
   }
 
   // Players
   function createPlayer({name,alias}){ const id=uid(); state.players[id]={id,name,alias,tags:[],notes:"",lastSeenWhere:"",lastSeenWhen:"",photo:null}; save(); return id; }
 
   function renderPlayers(){
-    const q=($('#searchInput').value||'').toLowerCase();
-    const list=$('#playersList'); list.innerHTML='';
+    const q=(document.getElementById('searchInput').value||'').toLowerCase();
+    const list=document.getElementById('playersList'); list.innerHTML='';
     const players=Object.values(state.players).sort((a,b)=>(a.alias||a.name||"").localeCompare(b.alias||b.name||""));
     players.forEach(p=>{
       const text=[p.name,p.alias,(p.tags||[]).join(" "),p.notes].join(" ").toLowerCase(); if(q && !text.includes(q)) return;
@@ -331,34 +327,34 @@ textarea{min-height:110px;resize:vertical}
 
   function openPlayerModal(id){
     const p=state.players[id]; if(!p) return;
-    $('#pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
-    $('#pmName').value=p.name||"";
-    $('#pmAlias').value=p.alias||"";
-    $('#pmAvatar').src=p.photo||"";
-    $('#pmNotes').value=p.notes||"";
-    $('#pmLastSeenWhere').value=p.lastSeenWhere||"";
-    $('#pmLastSeenWhen').value=p.lastSeenWhen||"";
-    renderPlayerTags(p); $('#playerModal').classList.add('open');
+    document.getElementById('pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
+    document.getElementById('pmName').value=p.name||"";
+    document.getElementById('pmAlias').value=p.alias||"";
+    document.getElementById('pmAvatar').src=p.photo||"";
+    document.getElementById('pmNotes').value=p.notes||"";
+    document.getElementById('pmLastSeenWhere').value=p.lastSeenWhere||"";
+    document.getElementById('pmLastSeenWhen').value=p.lastSeenWhen||"";
+    renderPlayerTags(p); document.getElementById('playerModal').classList.add('open');
 
-    $('#pmDelete').onclick=()=>{
+    document.getElementById('pmDelete').onclick=()=>{
       if(!confirm("Supprimer ce joueur ?")) return;
       Object.values(state.seats.map).forEach(s=>{ if(s.playerId===p.id) s.playerId=null; });
-      delete state.players[p.id]; save(); $('#playerModal').classList.remove('open'); renderPlayers(); drawSeats();
+      delete state.players[p.id]; save(); document.getElementById('playerModal').classList.remove('open'); renderPlayers(); drawSeats();
     };
-    $('#pmSave').onclick=()=>{
-      p.name=$('#pmName').value.trim();
-      p.alias=$('#pmAlias').value.trim();
-      p.notes=$('#pmNotes').value;
-      p.lastSeenWhere=$('#pmLastSeenWhere').value.trim();
-      p.lastSeenWhen=$('#pmLastSeenWhen').value;
-      save(); $('#playerModal').classList.remove('open'); renderPlayers(); drawSeats();
+    document.getElementById('pmSave').onclick=()=>{
+      p.name=document.getElementById('pmName').value.trim();
+      p.alias=document.getElementById('pmAlias').value.trim();
+      p.notes=document.getElementById('pmNotes').value;
+      p.lastSeenWhere=document.getElementById('pmLastSeenWhere').value.trim();
+      p.lastSeenWhen=document.getElementById('pmLastSeenWhen').value;
+      save(); document.getElementById('playerModal').classList.remove('open'); renderPlayers(); drawSeats();
     };
-    $('#pmClose').onclick=()=> $('#playerModal').classList.remove('open');
+    document.getElementById('pmClose').onclick=()=> document.getElementById('playerModal').classList.remove('open');
 
-    $('#pmPhoto').onchange=async (e)=>{
+    document.getElementById('pmPhoto').onchange=async (e)=>{
       const file=e.target.files[0]; if(!file) return;
       const dataUrl=await fileToResizedDataURL(file,256,256);
-      p.photo=dataUrl; $('#pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
+      p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
     };
   }
 

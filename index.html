@@ -21,6 +21,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-a
 .btn:active{transform:scale(0.98)}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn-xs{padding:6px 8px;font-size:12px;border-radius:8px}
 .card{background:var(--card);border:1px solid var(--outline);border-radius:14px;padding:12px}
 input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--outline);background:#101214;color:var(--fg);font-size:16px}
 textarea{min-height:110px;resize:vertical}
@@ -34,12 +35,13 @@ textarea{min-height:110px;resize:vertical}
 .muted{color:var(--muted)}.spacer{height:12px}
 .table-wrap{position:relative;aspect-ratio:1/1;width:100%;max-width:580px;margin:0 auto}
 .table-circle{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px dashed var(--outline)}
-.seat{position:absolute;width:86px;height:86px;border-radius:12px;border:1px solid var(--outline);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:4px;text-align:center;touch-action:manipulation;cursor:pointer}
+.seat{position:absolute;width:96px;height:96px;border-radius:12px;border:1px solid var(--outline);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:4px;text-align:center;touch-action:manipulation}
 .seat .pos{font-weight:600;font-size:12px;color:var(--muted)}
 .seat .name{font-size:12px;line-height:1.1}
 .seat .note{font-size:10px;color:var(--muted);max-height:2.2em;overflow:hidden}
 .seat.assigned{outline:2px solid var(--blue)}
 .seat .seat-avatar{width:36px;height:36px;border-radius:8px;border:1px solid var(--outline);object-fit:cover}
+.seat .seat-actions{display:flex;gap:6px;margin-top:4px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20}
 .modal.open{display:flex}
 .sheet{width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px}
@@ -81,7 +83,7 @@ textarea{min-height:110px;resize:vertical}
       <div class="spacer"></div>
       <div class="card">
         <div class="toolbar" id="quickTagsBar"></div>
-        <div class="muted" style="font-size:12px">Tap bref → assigner / ouvrir. Appui long (0,5 s) → note rapide.</div>
+        <div class="muted" style="font-size:12px">✎ = assigner/ouvrir • 📝 = note rapide • Tap sur le nom = ouvrir</div>
       </div>
     </div>
 
@@ -189,7 +191,7 @@ textarea{min-height:110px;resize:vertical}
     if(id==='players') renderPlayers(); if(id==='table') drawSeats(true);
   }));
 
-  // Quick tags
+  // Quick tags bar (ajoute/enlève un tag au joueur du siège X)
   function renderQuickTags(){
     const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
     defaultTags.forEach(tag=>{
@@ -222,56 +224,30 @@ textarea{min-height:110px;resize:vertical}
     for(let i=1;i<=n;i++){
       const seat=state.seats.map[i]||{playerId:null,notes:[]};
       const el=document.createElement('div'); el.className='seat'+(seat.playerId?' assigned':'');
-      const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-60;
-      const x=center+r*Math.cos(rad)-43, y=center+r*Math.sin(rad)-43; el.style.left=x+'px'; el.style.top=y+'px';
+      const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-70;
+      const x=center+r*Math.cos(rad)-48, y=center+r*Math.sin(rad)-48; el.style.left=x+'px'; el.style.top=y+'px';
 
       const pos=document.createElement('div'); pos.className='pos'; pos.textContent=i; el.appendChild(pos);
 
-      // Avatar + nom
+      // Avatar + nom (tap = ouvrir fiche)
       const content=document.createElement('div'); content.style.display='flex'; content.style.flexDirection='column'; content.style.alignItems='center'; content.style.gap='2px';
       const p=seat.playerId?state.players[seat.playerId]:null;
       if(p && p.photo){ const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; content.appendChild(av); }
-      const name=document.createElement('div'); name.className='name'; name.textContent=p?(p.alias||p.name||'—'):'Assign.'; content.appendChild(name);
+      const name=document.createElement('div'); name.className='name'; name.textContent=p?(p.alias||p.name||'—'):'(vide)'; 
+      name.style.cursor='pointer';
+      name.addEventListener('click', ()=>{ if(seat.playerId){ openPlayerModal(seat.playerId,i); } else { assignSeat(i); } });
+      content.appendChild(name);
       el.appendChild(content);
 
       const note=document.createElement('div'); note.className='note'; note.textContent=(seat.notes&&seat.notes[seat.notes.length-1])||''; el.appendChild(note);
 
-      // --- Gestes iPhone robustes (touch + fallback souris) ---
-      let t0=0, longTimer=null, didLong=false, moved=false;
-
-      function startLongPress(){
-        didLong=false; moved=false;
-        longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500);
-      }
-      function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
-
-      // Touch
-      el.addEventListener('touchstart', (e)=>{ t0=Date.now(); startLongPress(); }, {passive:true});
-      el.addEventListener('touchmove', ()=>{ moved=true; clearTimers(); }, {passive:true});
-      el.addEventListener('touchcancel', ()=>{ clearTimers(); }, {passive:true});
-      el.addEventListener('touchend', ()=>{ 
-        const dt=Date.now()-t0; clearTimers();
-        if(!didLong && !moved && dt<350){ openOrAssign(); }
-        // si didLong==true, on a déjà ouvert la note rapide → ne rien faire
-      }, {passive:true});
-
-      // Souris (fallback desktop)
-      let mouseDown=false, t0m=0;
-      el.addEventListener('mousedown', (e)=>{ mouseDown=true; t0m=Date.now(); startLongPress(); });
-      el.addEventListener('mouseleave', ()=>{ mouseDown=false; clearTimers(); });
-      el.addEventListener('mouseup', (e)=>{ 
-        const dt=Date.now()-t0m; clearTimers();
-        if(mouseDown && !didLong && dt<350){ openOrAssign(); }
-        mouseDown=false;
-      });
-
-      // On neutralise le click fantôme des PWA iOS seulement si nécessaire (ici on le laisse passer)
-
-      function openOrAssign(){
-        const s=state.seats.map[i];
-        if(s.playerId){ openPlayerModal(s.playerId,i); }
-        else { assignSeat(i); }
-      }
+      // Actions explicites (fiables iOS)
+      const actions=document.createElement('div'); actions.className='seat-actions';
+      const btnAssign=document.createElement('button'); btnAssign.className='btn btn-xs'; btnAssign.type='button'; btnAssign.textContent='✎';
+      btnAssign.title='Assigner/Ouvrir'; btnAssign.addEventListener('click', ()=>{ if(seat.playerId){ openPlayerModal(seat.playerId,i); } else { assignSeat(i); } });
+      const btnNote=document.createElement('button'); btnNote.className='btn btn-xs'; btnNote.type='button'; btnNote.textContent='📝';
+      btnNote.title='Note rapide'; btnNote.addEventListener('click', ()=>openSeatNoteModal(i));
+      actions.appendChild(btnAssign); actions.appendChild(btnNote); el.appendChild(actions);
 
       cont.appendChild(el);
     }

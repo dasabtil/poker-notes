@@ -18,35 +18,30 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-a
 .section{display:none;margin-top:12px}.section.active{display:block}
 .row{display:flex;gap:8px;align-items:center}
 .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:10px;border:1px solid var(--outline);background:var(--card);color:var(--fg);cursor:pointer;user-select:none;touch-action:manipulation}
-.btn:active{transform:scale(0.98)}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff}
-.btn-xs{padding:6px 8px;font-size:12px;border-radius:8px}
 .card{background:var(--card);border:1px solid var(--outline);border-radius:14px;padding:12px}
 input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--outline);background:#101214;color:var(--fg);font-size:16px}
 textarea{min-height:110px;resize:vertical}
-.chip{padding:10px 12px;border-radius:999px;border:1px solid var(--outline);background:#121417;font-size:15px;cursor:pointer;user-select:none;touch-action:manipulation}
-.chip.active{outline:2px solid var(--accent)}
+.muted{color:var(--muted)}.spacer{height:12px}
+
+/* TABLE */
+.table-wrap{position:relative;aspect-ratio:1/1;width:100%;max-width:620px;margin:0 auto}
+.table-circle{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px dashed var(--outline)}
+.seat{position:absolute;width:96px;height:96px;border-radius:12px;border:1px solid var(--outline);
+      background:var(--card);display:flex;align-items:center;justify-content:center;padding:6px;
+      text-align:center;touch-action:manipulation;cursor:pointer}
+.seat.assigned{outline:2px solid var(--blue)}
+.seat .seat-avatar{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);object-fit:cover;display:block}
+.seat .placeholder{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);display:flex;align-items:center;justify-content:center}
+svg{display:block}
+
+/* LISTE JOUEURS */
 .list{display:flex;flex-direction:column;gap:8px}
 .player-row{display:flex;gap:10px;align-items:center}
 .avatar{width:56px;height:56px;border-radius:10px;background:#0b0c0d;border:1px solid var(--outline);object-fit:cover;flex:0 0 56px}
 .avatar.sm{width:42px;height:42px;flex:0 0 42px}
 .pill{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--outline);color:var(--muted)}
-.muted{color:var(--muted)}.spacer{height:12px}
-.table-wrap{position:relative;aspect-ratio:1/1;width:100%;max-width:580px;margin:0 auto}
-.table-circle{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px dashed var(--outline)}
-.seat{position:absolute;width:96px;height:96px;border-radius:12px;border:1px solid var(--outline);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:4px;text-align:center;touch-action:manipulation}
-.seat .pos{font-weight:600;font-size:12px;color:var(--muted)}
-.seat .name{font-size:12px;line-height:1.1}
-.seat .note{font-size:10px;color:var(--muted);max-height:2.2em;overflow:hidden}
-.seat.assigned{outline:2px solid var(--blue)}
-.seat .seat-avatar{width:36px;height:36px;border-radius:8px;border:1px solid var(--outline);object-fit:cover}
-.seat .seat-actions{display:flex;gap:6px;margin-top:4px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20}
-.modal.open{display:flex}
-.sheet{width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px}
-.toolbar{display:flex;gap:8px;overflow:auto}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 </style>
 </head>
 <body>
@@ -58,6 +53,7 @@ textarea{min-height:110px;resize:vertical}
       <div class="tab" data-tab="help">Aide</div>
     </div>
   </div>
+
   <div class="app">
     <div id="table" class="section active">
       <div class="card">
@@ -75,15 +71,11 @@ textarea{min-height:110px;resize:vertical}
           <div class="row"><button class="btn" id="btnClearTable">Vider la table</button></div>
         </div>
       </div>
+
       <div class="spacer"></div>
       <div class="table-wrap">
         <div class="table-circle" id="tableCircle"></div>
         <div id="seatsContainer"></div>
-      </div>
-      <div class="spacer"></div>
-      <div class="card">
-        <div class="toolbar" id="quickTagsBar"></div>
-        <div class="muted" style="font-size:12px">✎ = assigner/ouvrir • 📝 = note rapide • Tap sur le nom = ouvrir</div>
       </div>
     </div>
 
@@ -124,23 +116,22 @@ textarea{min-height:110px;resize:vertical}
       <div class="card">
         <h3>Conseils</h3>
         <ul>
-          <li>Tout reste sur l’appareil (localStorage).</li>
-          <li>Photo : pellicule OU appareil.</li>
-          <li>Export .json = sauvegarde/backup (fin de session recommandé).</li>
+          <li>Table : uniquement les photos (tap = ouvrir/assigner, appui long = note rapide).</li>
+          <li>Tes données restent locales (localStorage). Pense à exporter en fin de session.</li>
         </ul>
       </div>
     </div>
   </div>
 
   <!-- Player Modal -->
-  <div class="modal" id="playerModal">
-    <div class="sheet">
+  <div class="modal" id="playerModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
+    <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 id="pmTitle">Joueur</h3>
         <button class="btn btn-danger" id="pmDelete" type="button">Supprimer</button>
       </div>
       <div class="spacer"></div>
-      <div class="two">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div><input id="pmName" placeholder="Nom / Pseudo" /></div>
         <div><input id="pmAlias" placeholder="Alias court (facultatif)" /></div>
       </div>
@@ -150,11 +141,11 @@ textarea{min-height:110px;resize:vertical}
         <input type="file" id="pmPhoto" accept="image/*" />
       </div>
       <div class="spacer"></div>
-      <div class="card"><div class="toolbar" id="pmTagList"></div></div>
+      <div class="card"><div class="toolbar" id="pmTagList" style="display:flex;gap:8px;overflow:auto"></div></div>
       <div class="spacer"></div>
       <textarea id="pmNotes" placeholder="Reads, sizings, leaks, tells..."></textarea>
       <div class="spacer"></div>
-      <div class="two">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input id="pmLastSeenWhere" placeholder="Lieu (ex: WSOP-C, Estoril...)" />
         <input id="pmLastSeenWhen" type="date" />
       </div>
@@ -164,8 +155,8 @@ textarea{min-height:110px;resize:vertical}
   </div>
 
   <!-- Seat Quick Note Modal -->
-  <div class="modal" id="seatNoteModal">
-    <div class="sheet">
+  <div class="modal" id="seatNoteModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
+    <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <h3 id="snmTitle">Note rapide – Siège</h3>
       <textarea id="snmText" placeholder="Ex: Limp UTG, call 3bet OOP, donk 1/2, show KTo..."></textarea>
       <div class="spacer"></div>
@@ -191,22 +182,15 @@ textarea{min-height:110px;resize:vertical}
     if(id==='players') renderPlayers(); if(id==='table') drawSeats(true);
   }));
 
-  // Quick tags bar (ajoute/enlève un tag au joueur du siège X)
-  function renderQuickTags(){
-    const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
+  // Quick tags in modal
+  function renderPlayerTags(p){
+    const cont=document.getElementById('pmTagList'); cont.innerHTML='';
     defaultTags.forEach(tag=>{
-      const b=document.createElement('div'); b.className='chip'; b.textContent=tag;
-      b.addEventListener('click', ()=>{
-        const sel=prompt("Ajouter/retirer ce tag à quel siège ? (numéro)");
-        const seatIdx=parseInt(sel,10);
-        if(!Number.isFinite(seatIdx)) return;
-        const seat=state.seats.map[seatIdx];
-        if(!seat||!seat.playerId){ alert("Aucun joueur assigné à ce siège."); return; }
-        const p=state.players[seat.playerId]; p.tags=p.tags||[];
-        const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag);
-        save(); renderPlayers(); drawSeats();
-      }, {passive:true});
-      bar.appendChild(b);
+      const el=document.createElement('div');
+      el.textContent=tag; el.className='pill'; el.style.cursor='pointer';
+      if(p.tags&&p.tags.includes(tag)) el.style.outline='2px solid var(--accent)';
+      el.addEventListener('click', ()=>{ p.tags=p.tags||[]; const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag); save(); renderPlayerTags(p); renderPlayers(); drawSeats(); }, {passive:true});
+      cont.appendChild(el);
     });
   }
 
@@ -224,36 +208,47 @@ textarea{min-height:110px;resize:vertical}
     for(let i=1;i<=n;i++){
       const seat=state.seats.map[i]||{playerId:null,notes:[]};
       const el=document.createElement('div'); el.className='seat'+(seat.playerId?' assigned':'');
-      const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-70;
+      /* Plus d’espace vers l’extérieur de la table */
+      const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-28;
       const x=center+r*Math.cos(rad)-48, y=center+r*Math.sin(rad)-48; el.style.left=x+'px'; el.style.top=y+'px';
 
-      const pos=document.createElement('div'); pos.className='pos'; pos.textContent=i; el.appendChild(pos);
-
-      // Avatar + nom (tap = ouvrir fiche)
-      const content=document.createElement('div'); content.style.display='flex'; content.style.flexDirection='column'; content.style.alignItems='center'; content.style.gap='2px';
+      // Photo uniquement
       const p=seat.playerId?state.players[seat.playerId]:null;
-      if(p && p.photo){ const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; content.appendChild(av); }
-      const name=document.createElement('div'); name.className='name'; name.textContent=p?(p.alias||p.name||'—'):'(vide)'; 
-      name.style.cursor='pointer';
-      name.addEventListener('click', ()=>{ if(seat.playerId){ openPlayerModal(seat.playerId,i); } else { assignSeat(i); } });
-      content.appendChild(name);
-      el.appendChild(content);
+      if(p && p.photo){
+        const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; el.appendChild(av);
+      }else{
+        const ph=document.createElement('div'); ph.className='placeholder'; ph.innerHTML=`<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="8" r="4" stroke-width="1.5"></circle>
+          <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke-width="1.5"></path>
+        </svg>`;
+        el.appendChild(ph);
+      }
 
-      const note=document.createElement('div'); note.className='note'; note.textContent=(seat.notes&&seat.notes[seat.notes.length-1])||''; el.appendChild(note);
-
-      // Actions explicites (fiables iOS)
-      const actions=document.createElement('div'); actions.className='seat-actions';
-      const btnAssign=document.createElement('button'); btnAssign.className='btn btn-xs'; btnAssign.type='button'; btnAssign.textContent='✎';
-      btnAssign.title='Assigner/Ouvrir'; btnAssign.addEventListener('click', ()=>{ if(seat.playerId){ openPlayerModal(seat.playerId,i); } else { assignSeat(i); } });
-      const btnNote=document.createElement('button'); btnNote.className='btn btn-xs'; btnNote.type='button'; btnNote.textContent='📝';
-      btnNote.title='Note rapide'; btnNote.addEventListener('click', ()=>openSeatNoteModal(i));
-      actions.appendChild(btnAssign); actions.appendChild(btnNote); el.appendChild(actions);
+      // Gestes : tap bref = assigner/ouvrir ; appui long = note rapide
+      let t0=0, longTimer=null, didLong=false, moved=false;
+      function startLong(){ didLong=false; moved=false; longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500); }
+      function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
+      el.addEventListener('touchstart', ()=>{ t0=Date.now(); startLong(); }, {passive:true});
+      el.addEventListener('touchmove', ()=>{ moved=true; clearTimers(); }, {passive:true});
+      el.addEventListener('touchcancel', ()=>{ clearTimers(); }, {passive:true});
+      el.addEventListener('touchend', ()=>{ const dt=Date.now()-t0; clearTimers(); if(!didLong && !moved && dt<350){ openOrAssign(i); } }, {passive:true});
+      // Fallback souris (desktop)
+      let md=false, t0m=0;
+      el.addEventListener('mousedown', ()=>{ md=true; t0m=Date.now(); startLong(); });
+      el.addEventListener('mouseleave', ()=>{ md=false; clearTimers(); });
+      el.addEventListener('mouseup', ()=>{ const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
 
       cont.appendChild(el);
     }
   }
   window.addEventListener('resize', ()=>drawSeats(true));
   window.addEventListener('orientationchange', ()=>setTimeout(()=>drawSeats(true), 200));
+
+  function openOrAssign(seatIdx){
+    const s=state.seats.map[seatIdx];
+    if(s.playerId){ openPlayerModal(s.playerId, seatIdx); }
+    else { assignSeat(seatIdx); }
+  }
 
   function assignSeat(seatIdx){
     const name=prompt("Nom/Pseudo du joueur à assigner ? (ou vide pour choisir existant)");
@@ -286,12 +281,12 @@ textarea{min-height:110px;resize:vertical}
         p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t;
       }
       save(); drawSeats(); renderPlayers();
-      document.getElementById('seatNoteModal').classList.remove('open');
+      document.getElementById('seatNoteModal').style.display='none';
     };
     document.getElementById('snmSave').onclick=saveNote;
     ta.onkeydown=(e)=>{ if(e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); saveNote(); } };
-    document.getElementById('snmClose').onclick=()=> document.getElementById('seatNoteModal').classList.remove('open');
-    document.getElementById('seatNoteModal').classList.add('open');
+    document.getElementById('snmClose').onclick=()=> document.getElementById('seatNoteModal').style.display='none';
+    document.getElementById('seatNoteModal').style.display='flex';
   }
 
   // Players
@@ -329,12 +324,13 @@ textarea{min-height:110px;resize:vertical}
     document.getElementById('pmNotes').value=p.notes||"";
     document.getElementById('pmLastSeenWhere').value=p.lastSeenWhere||"";
     document.getElementById('pmLastSeenWhen').value=p.lastSeenWhen||"";
-    renderPlayerTags(p); document.getElementById('playerModal').classList.add('open');
+    renderPlayerTags(p);
+    document.getElementById('playerModal').style.display='flex';
 
     document.getElementById('pmDelete').onclick=()=>{
       if(!confirm("Supprimer ce joueur ?")) return;
       Object.values(state.seats.map).forEach(s=>{ if(s.playerId===p.id) s.playerId=null; });
-      delete state.players[p.id]; save(); document.getElementById('playerModal').classList.remove('open'); renderPlayers(); drawSeats();
+      delete state.players[p.id]; save(); document.getElementById('playerModal').style.display='none'; renderPlayers(); drawSeats();
     };
     document.getElementById('pmSave').onclick=()=>{
       p.name=document.getElementById('pmName').value.trim();
@@ -342,24 +338,15 @@ textarea{min-height:110px;resize:vertical}
       p.notes=document.getElementById('pmNotes').value;
       p.lastSeenWhere=document.getElementById('pmLastSeenWhere').value.trim();
       p.lastSeenWhen=document.getElementById('pmLastSeenWhen').value;
-      save(); document.getElementById('playerModal').classList.remove('open'); renderPlayers(); drawSeats();
+      save(); document.getElementById('playerModal').style.display='none'; renderPlayers(); drawSeats();
     };
-    document.getElementById('pmClose').onclick=()=> document.getElementById('playerModal').classList.remove('open');
+    document.getElementById('pmClose').onclick=()=> document.getElementById('playerModal').style.display='none';
 
     document.getElementById('pmPhoto').onchange=async (e)=>{
       const file=e.target.files[0]; if(!file) return;
       const dataUrl=await fileToResizedDataURL(file,256,256);
       p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
     };
-  }
-
-  function renderPlayerTags(p){
-    const cont=document.getElementById('pmTagList'); cont.innerHTML='';
-    defaultTags.forEach(tag=>{
-      const el=document.createElement('div'); el.className='chip'+(p.tags&&p.tags.includes(tag)?' active':''); el.textContent=tag;
-      el.addEventListener('click', ()=>{ p.tags=p.tags||[]; const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag); save(); renderPlayerTags(p); renderPlayers(); drawSeats(); }, {passive:true});
-      cont.appendChild(el);
-    });
   }
 
   // Helpers
@@ -410,7 +397,7 @@ textarea{min-height:110px;resize:vertical}
 
   // Init
   load(); if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
-  renderQuickTags(); requestAnimationFrame(()=>drawSeats(true)); renderPlayers();
+  requestAnimationFrame(()=>drawSeats(true)); renderPlayers();
 })();
 </script>
 </body>

@@ -34,7 +34,8 @@ textarea{min-height:110px;resize:vertical}
 .seat.assigned{outline:2px solid var(--blue)}
 .seat .seat-avatar{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);object-fit:cover;display:block}
 .seat .placeholder{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);display:flex;align-items:center;justify-content:center}
-svg{display:block}
+.seat .pos{position:absolute;top:4px;left:4px;background:#0009;border:1px solid var(--outline);color:#fff;
+           font-size:11px;padding:2px 6px;border-radius:999px}
 
 /* LISTE JOUEURS */
 .list{display:flex;flex-direction:column;gap:8px}
@@ -42,6 +43,8 @@ svg{display:block}
 .avatar{width:56px;height:56px;border-radius:10px;background:#0b0c0d;border:1px solid var(--outline);object-fit:cover;flex:0 0 56px}
 .avatar.sm{width:42px;height:42px;flex:0 0 42px}
 .pill{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--outline);color:var(--muted)}
+.toolbar{display:flex;gap:8px;overflow:auto}
+.chip{padding:10px 12px;border-radius:999px;border:1px solid var(--outline);background:#121417;font-size:15px;cursor:pointer;user-select:none}
 </style>
 </head>
 <body>
@@ -76,6 +79,14 @@ svg{display:block}
       <div class="table-wrap">
         <div class="table-circle" id="tableCircle"></div>
         <div id="seatsContainer"></div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="card">
+        <div class="toolbar" id="quickTagsBar"></div>
+        <div class="muted" style="font-size:12px;margin-top:6px">
+          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Saisie tag: tape le numéro de siège demandé.
+        </div>
       </div>
     </div>
 
@@ -116,8 +127,9 @@ svg{display:block}
       <div class="card">
         <h3>Conseils</h3>
         <ul>
-          <li>Table : uniquement les photos (tap = ouvrir/assigner, appui long = note rapide).</li>
-          <li>Tes données restent locales (localStorage). Pense à exporter en fin de session.</li>
+          <li>Table = photos uniquement + numéro de siège.</li>
+          <li>Tap bref → assigner/ouvrir ; appui long → note rapide.</li>
+          <li>Tes données restent locales. Pense à exporter en fin de session.</li>
         </ul>
       </div>
     </div>
@@ -179,18 +191,25 @@ svg{display:block}
   $$('.tab').forEach(t=>t.addEventListener('click',()=>{
     $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
     const id=t.dataset.tab; $$('.section').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active');
-    if(id==='players') renderPlayers(); if(id==='table') drawSeats(true);
+    if(id==='players') renderPlayers(); if(id==='table') { drawSeats(true); renderQuickTags(); }
   }));
 
-  // Quick tags in modal
-  function renderPlayerTags(p){
-    const cont=document.getElementById('pmTagList'); cont.innerHTML='';
+  // Quick tags (barre en bas)
+  function renderQuickTags(){
+    const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
     defaultTags.forEach(tag=>{
-      const el=document.createElement('div');
-      el.textContent=tag; el.className='pill'; el.style.cursor='pointer';
-      if(p.tags&&p.tags.includes(tag)) el.style.outline='2px solid var(--accent)';
-      el.addEventListener('click', ()=>{ p.tags=p.tags||[]; const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag); save(); renderPlayerTags(p); renderPlayers(); drawSeats(); }, {passive:true});
-      cont.appendChild(el);
+      const b=document.createElement('div'); b.className='chip'; b.textContent=tag;
+      b.addEventListener('click', ()=>{
+        const sel=prompt("Ajouter/retirer ce tag à quel siège ? (numéro)");
+        const seatIdx=parseInt(sel,10);
+        if(!Number.isFinite(seatIdx)) return;
+        const seat=state.seats.map[seatIdx];
+        if(!seat||!seat.playerId){ alert("Aucun joueur assigné à ce siège."); return; }
+        const p=state.players[seat.playerId]; p.tags=p.tags||[];
+        const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag);
+        save(); renderPlayers(); drawSeats();
+      }, {passive:true});
+      bar.appendChild(b);
     });
   }
 
@@ -208,11 +227,14 @@ svg{display:block}
     for(let i=1;i<=n;i++){
       const seat=state.seats.map[i]||{playerId:null,notes:[]};
       const el=document.createElement('div'); el.className='seat'+(seat.playerId?' assigned':'');
-      /* Plus d’espace vers l’extérieur de la table */
+      /* Espacé vers l’extérieur */
       const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-28;
       const x=center+r*Math.cos(rad)-48, y=center+r*Math.sin(rad)-48; el.style.left=x+'px'; el.style.top=y+'px';
 
-      // Photo uniquement
+      // Numéro de siège
+      const pos=document.createElement('div'); pos.className='pos'; pos.textContent=i; el.appendChild(pos);
+
+      // Photo / placeholder
       const p=seat.playerId?state.players[seat.playerId]:null;
       if(p && p.photo){
         const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; el.appendChild(av);
@@ -224,19 +246,34 @@ svg{display:block}
         el.appendChild(ph);
       }
 
-      // Gestes : tap bref = assigner/ouvrir ; appui long = note rapide
-      let t0=0, longTimer=null, didLong=false, moved=false;
-      function startLong(){ didLong=false; moved=false; longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500); }
+      // Gestes robustes : tap bref = assigner/ouvrir ; long-press = note rapide
+      let t0=0, x0=0, y0=0, longTimer=null, didLong=false, moved=false;
+      const MOVE_TOL=14; // px
+
+      function startLong(){
+        didLong=false; moved=false;
+        longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500);
+      }
       function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
-      el.addEventListener('touchstart', ()=>{ t0=Date.now(); startLong(); }, {passive:true});
-      el.addEventListener('touchmove', ()=>{ moved=true; clearTimers(); }, {passive:true});
+
+      el.addEventListener('touchstart', (e)=>{
+        const t=e.changedTouches[0]; t0=Date.now(); x0=t.clientX; y0=t.clientY; startLong();
+      }, {passive:true});
+      el.addEventListener('touchmove', (e)=>{
+        const t=e.changedTouches[0]; const dx=t.clientX-x0, dy=t.clientY-y0;
+        if(Math.hypot(dx,dy)>MOVE_TOL){ moved=true; clearTimers(); }
+      }, {passive:true});
       el.addEventListener('touchcancel', ()=>{ clearTimers(); }, {passive:true});
-      el.addEventListener('touchend', ()=>{ const dt=Date.now()-t0; clearTimers(); if(!didLong && !moved && dt<350){ openOrAssign(i); } }, {passive:true});
+      el.addEventListener('touchend', ()=>{ 
+        const dt=Date.now()-t0; clearTimers();
+        if(!didLong && !moved && dt<350){ openOrAssign(i); }
+      }, {passive:true});
+
       // Fallback souris (desktop)
       let md=false, t0m=0;
-      el.addEventListener('mousedown', ()=>{ md=true; t0m=Date.now(); startLong(); });
+      el.addEventListener('mousedown', (e)=>{ md=true; t0m=Date.now(); startLong(); });
       el.addEventListener('mouseleave', ()=>{ md=false; clearTimers(); });
-      el.addEventListener('mouseup', ()=>{ const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
+      el.addEventListener('mouseup', (e)=>{ const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
 
       cont.appendChild(el);
     }
@@ -349,6 +386,16 @@ svg{display:block}
     };
   }
 
+  function renderPlayerTags(p){
+    const cont=document.getElementById('pmTagList'); cont.innerHTML='';
+    defaultTags.forEach(tag=>{
+      const el=document.createElement('div'); el.className='pill'; el.textContent=tag; el.style.cursor='pointer';
+      if(p.tags&&p.tags.includes(tag)) el.style.outline='2px solid var(--accent)';
+      el.addEventListener('click', ()=>{ p.tags=p.tags||[]; const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag); save(); renderPlayerTags(p); renderPlayers(); drawSeats(); }, {passive:true});
+      cont.appendChild(el);
+    });
+  }
+
   // Helpers
   function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) ); }
   function fileToResizedDataURL(file, maxW, maxH){
@@ -393,11 +440,10 @@ svg{display:block}
     Object.keys(state.seats.map).forEach(k=>{ state.seats.map[k].playerId=null; state.seats.map[k].notes=[]; }); save(); drawSeats(true);
   };
   document.getElementById('btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
-  document.getElementById('searchInput').oninput=renderPlayers;
 
   // Init
   load(); if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
-  requestAnimationFrame(()=>drawSeats(true)); renderPlayers();
+  requestAnimationFrame(()=>{ drawSeats(true); renderQuickTags(); }); renderPlayers();
 })();
 </script>
 </body>

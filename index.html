@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Poker Notes – iPhone</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -16,7 +16,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-a
 .tab{flex:1 1 auto;text-align:center;padding:10px;border:1px solid var(--outline);border-radius:10px;background:var(--card);cursor:pointer;user-select:none}
 .tab.active{outline:2px solid var(--accent)}
 .section{display:none;margin-top:12px}.section.active{display:block}
-.row{display:flex;gap:8px;align-items:center}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:10px;border:1px solid var(--outline);background:var(--card);color:var(--fg);cursor:pointer;user-select:none;touch-action:manipulation}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -36,7 +36,6 @@ textarea{min-height:110px;resize:vertical}
 .seat .placeholder{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);display:flex;align-items:center;justify-content:center;margin-top:14px}
 .seat .pos{position:absolute;top:4px;left:4px;background:#0009;border:1px solid var(--outline);color:#fff;
            font-size:11px;padding:2px 6px;border-radius:999px}
-/* Champ stack/BB sous la photo */
 .seat .stack{margin-top:6px;width:86px;padding:4px 6px;font-size:12px;text-align:center;border-radius:8px;border:1px solid var(--outline);
              background:#101214;color:var(--fg)}
 .seat .stack::placeholder{color:#70757a}
@@ -49,9 +48,27 @@ textarea{min-height:110px;resize:vertical}
 .pill{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--outline);color:var(--muted)}
 .toolbar{display:flex;gap:8px;overflow:auto}
 .chip{padding:10px 12px;border-radius:999px;border:1px solid var(--outline);background:#121417;font-size:15px;cursor:pointer;user-select:none}
+
+/* PIN overlay */
+#pinLock{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;z-index:50}
+#pinBox{background:var(--card);border:1px solid var(--outline);border-radius:16px;padding:16px;max-width:320px;width:90%}
 </style>
 </head>
 <body>
+  <!-- Écran PIN -->
+  <div id="pinLock">
+    <div id="pinBox">
+      <h3>Déverrouiller</h3>
+      <p class="muted" id="pinMsg">Entre ton code PIN</p>
+      <input id="pinInput" placeholder="PIN" inputmode="numeric" maxlength="6" />
+      <div class="spacer"></div>
+      <div class="row">
+        <button class="btn btn-primary" id="pinOk">OK</button>
+        <button class="btn" id="pinCancel">Quitter</button>
+      </div>
+    </div>
+  </div>
+
   <div class="topbar">
     <div class="tabs">
       <div class="tab active" data-tab="table">Table</div>
@@ -62,10 +79,11 @@ textarea{min-height:110px;resize:vertical}
   </div>
 
   <div class="app">
+    <!-- TABLE -->
     <div id="table" class="section active">
       <div class="card">
-        <div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div class="row" style="gap:6px;align-items:center;">
+        <div class="row" style="justify-content:space-between">
+          <div class="row" style="gap:6px;align-items:center">
             <strong>Configuration :</strong>
             <select id="seatCount">
               <option value="6">6-max</option>
@@ -75,7 +93,7 @@ textarea{min-height:110px;resize:vertical}
             </select>
             <input id="tableName" placeholder="Nom de la table / Session" />
           </div>
-          <div class="row"><button class="btn" id="btnClearTable">Vider la table</button></div>
+          <button class="btn" id="btnClearTable">Vider la table</button>
         </div>
       </div>
 
@@ -89,11 +107,12 @@ textarea{min-height:110px;resize:vertical}
       <div class="card">
         <div class="toolbar" id="quickTagsBar"></div>
         <div class="muted" style="font-size:12px;margin-top:6px">
-          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Tag = on te demande le numéro de siège.
+          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Tag = tape le numéro de siège demandé.
         </div>
       </div>
     </div>
 
+    <!-- JOUEURS -->
     <div id="players" class="section">
       <div class="row">
         <input id="searchInput" placeholder="Rechercher par nom, tag..." />
@@ -103,42 +122,50 @@ textarea{min-height:110px;resize:vertical}
       <div class="list" id="playersList"></div>
     </div>
 
+    <!-- EXPORT / IMPORT -->
     <div id="export" class="section">
       <div class="card">
         <h3>Export</h3>
-        <p class="muted">Fichier .json — local, rien n’est envoyé.</p>
+        <p class="muted">Rien n’est envoyé en ligne. Les fichiers sont générés sur l’iPhone.</p>
         <div class="row">
-          <button class="btn btn-primary" id="btnExport" type="button">Exporter .json</button>
-          <button class="btn" id="btnCopy" type="button">Copier JSON</button>
+          <button class="btn btn-primary" id="btnExportJSON" type="button">Exporter JSON (ré-importable)</button>
         </div>
         <div id="copyFallback" class="muted" style="display:none;margin-top:8px">
           <div>Copie non disponible. Sélectionne manuellement :</div>
           <textarea id="jsonArea" readonly></textarea>
         </div>
       </div>
+
       <div class="spacer"></div>
       <div class="card">
         <h3>Import</h3>
         <input type="file" id="importFile" accept="application/json" />
         <div class="row">
-          <button class="btn" id="btnImport" type="button">Importer</button>
+          <button class="btn" id="btnImport" type="button">Importer JSON</button>
           <button class="btn btn-danger" id="btnWipe" type="button">Effacer toutes les données</button>
         </div>
       </div>
     </div>
 
+    <!-- AIDE / SÉCURITÉ -->
     <div id="help" class="section">
       <div class="card">
-        <h3>Conseils</h3>
+        <h3>Conseils & Sécurité</h3>
         <ul>
-          <li>Table = photos + numéro + stack/BB sous chaque siège.</li>
-          <li>Tes données restent locales. Pense à exporter en fin de session.</li>
+          <li>Tes données restent sur l’iPhone (stockage du site). Sauvegarde JSON régulièrement.</li>
+          <li>Supprimer les “données de site” efface aussi l’app (notes + photos). Pense à exporter.</li>
+          <li>Les photos sont des copies compressées : effacer la photo de ta pellicule ne l’efface pas ici.</li>
         </ul>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="btn" id="btnSetPin">Définir/Changer PIN</button>
+          <button class="btn btn-danger" id="btnRemovePin">Retirer PIN</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Modals -->
+  <!-- MODALS -->
   <div class="modal" id="playerModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
     <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <div class="row" style="justify-content:space-between;align-items:center">
@@ -181,9 +208,9 @@ textarea{min-height:110px;resize:vertical}
 <script>
 (function(){
   const LS_KEY='pokerNotesDataV1';
-  const customTags=[
-    "Slowplayer","Hit or Fold","Believer","Non believer","Nit","Value thin","Sizing face up","Stabeur","CS","Donk any pair","Recrea fold SB","Fastplay FD deep","Fastplayer","Trop passif","Baleine","LAG","Snapcall bluffcatch"
-  ];
+  const PIN_KEY='pokerNotesPINv1';
+  const customTags=["Slowplayer","Hit or Fold","Believer","Non believer","Nit","Value thin","Sizing face up","Stabeur","CS","Donk any pair","Recrea fold SB","Fastplay FD deep","Fastplayer","Trop passif","Baleine","LAG","Snapcall bluffcatch"];
+
   let state={players:{},seats:{count:9,tableName:"",map:{}}};
 
   const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
@@ -191,14 +218,33 @@ textarea{min-height:110px;resize:vertical}
   const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein. Exporte puis nettoie."); } };
   const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players && o.seats) state=o; }catch(e){} } };
 
-  // Tabs
+  /* ---------- PIN ---------- */
+  function getPin(){ return localStorage.getItem(PIN_KEY)||""; }
+  function setPin(pin){ if(pin) localStorage.setItem(PIN_KEY,pin); else localStorage.removeItem(PIN_KEY); }
+  function requirePinIfSet(){
+    const pin=getPin(); if(!pin) return;
+    $('#pinLock').style.display='flex';
+    $('#pinMsg').textContent="Entre ton code PIN";
+    $('#pinInput').value="";
+    setTimeout(()=>$('#pinInput').focus(),50);
+    const ok=()=>{
+      if($('#pinInput').value===pin){ $('#pinLock').style.display='none'; }
+      else { $('#pinMsg').textContent="PIN incorrect. Réessaie."; $('#pinInput').value=""; $('#pinInput').focus(); }
+    };
+    $('#pinOk').onclick=ok;
+    $('#pinCancel').onclick=()=>{ location.href='about:blank'; };
+    $('#pinInput').onkeydown=(e)=>{ if(e.key==='Enter') ok(); };
+  }
+
+  /* ---------- Onglets ---------- */
   $$('.tab').forEach(t=>t.addEventListener('click',()=>{
     $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
     const id=t.dataset.tab; $$('.section').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active');
-    if(id==='players') renderPlayers(); if(id==='table') { drawSeats(true); renderQuickTags(); }
+    if(id==='players') renderPlayers();
+    if(id==='table') { drawSeats(true); renderQuickTags(); }
   }));
 
-  // Quick tags (barre en bas avec tes tags)
+  /* ---------- Barre de tags rapide (tags perso) ---------- */
   function renderQuickTags(){
     const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
     customTags.forEach(tag=>{
@@ -217,15 +263,9 @@ textarea{min-height:110px;resize:vertical}
     });
   }
 
-  // Seats
+  /* ---------- Table & sièges ---------- */
   function initSeats(n){ state.seats.count=n; state.seats.map={}; for(let i=1;i<=n;i++) state.seats.map[i]={playerId:null,notes:[],stack:""}; }
-
-  function ensureSeatDefaults(){
-    // pour compatibilité si anciennes données sans "stack"
-    Object.keys(state.seats.map||{}).forEach(k=>{
-      const s=state.seats.map[k]; if(s && typeof s.stack==="undefined") s.stack="";
-    });
-  }
+  function ensureSeatDefaults(){ Object.keys(state.seats.map||{}).forEach(k=>{ const s=state.seats.map[k]; if(s && typeof s.stack==="undefined") s.stack=""; }); }
 
   function drawSeats(retry){
     const n=state.seats.count || 9;
@@ -242,14 +282,11 @@ textarea{min-height:110px;resize:vertical}
     for(let i=1;i<=n;i++){
       const seat=state.seats.map[i]||{playerId:null,notes:[],stack:""};
       const el=document.createElement('div'); el.className='seat'+(seat.playerId?' assigned':'');
-      /* Espacé vers l’extérieur */
       const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-30;
       const x=center+r*Math.cos(rad)-50, y=center+r*Math.sin(rad)-59; el.style.left=x+'px'; el.style.top=y+'px';
 
-      // Numéro de siège
       const pos=document.createElement('div'); pos.className='pos'; pos.textContent=i; el.appendChild(pos);
 
-      // Photo / placeholder
       const p=seat.playerId?state.players[seat.playerId]:null;
       if(p && p.photo){
         const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; el.appendChild(av);
@@ -261,50 +298,23 @@ textarea{min-height:110px;resize:vertical}
         el.appendChild(ph);
       }
 
-      // Champ stack/BB (petit, lisible)
       const stackInput=document.createElement('input');
-      stackInput.className='stack';
-      stackInput.placeholder='ex: 35bb';
-      stackInput.inputMode='text';
-      stackInput.autocapitalize='off';
-      stackInput.autocomplete='off';
-      stackInput.spellcheck=false;
+      stackInput.className='stack'; stackInput.placeholder='ex: 35bb'; stackInput.inputMode='text';
+      stackInput.autocapitalize='off'; stackInput.autocomplete='off'; stackInput.spellcheck=false;
       stackInput.value=seat.stack||'';
-      // Empêche que le toucher du champ déclenche les gestes du siège
-      ['touchstart','touchmove','touchend','mousedown','mouseup','click'].forEach(evt=>{
-        stackInput.addEventListener(evt, ev=>{ ev.stopPropagation(); }, {passive:true});
-      });
-      stackInput.addEventListener('input', ()=>{
-        state.seats.map[i].stack=stackInput.value.trim();
-        save();
-      });
+      ['touchstart','touchmove','touchend','mousedown','mouseup','click'].forEach(evt=>stackInput.addEventListener(evt, ev=>ev.stopPropagation(), {passive:true}));
+      stackInput.addEventListener('input', ()=>{ state.seats.map[i].stack=stackInput.value.trim(); save(); });
       el.appendChild(stackInput);
 
-      // Gestes robustes : tap bref = assigner/ouvrir ; long-press = note rapide
-      let t0=0, x0=0, y0=0, longTimer=null, didLong=false, moved=false;
-      const MOVE_TOL=14; // px
-
-      function startLong(){
-        didLong=false; moved=false;
-        longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500);
-      }
+      // Gestes (tap bref / long press)
+      let t0=0,x0=0,y0=0,longTimer=null,didLong=false,moved=false; const MOVE_TOL=14;
+      function startLong(){ didLong=false; moved=false; longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500); }
       function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
-
-      el.addEventListener('touchstart', (e)=>{
-        const t=e.changedTouches[0]; t0=Date.now(); x0=t.clientX; y0=t.clientY; startLong();
-      }, {passive:true});
-      el.addEventListener('touchmove', (e)=>{
-        const t=e.changedTouches[0]; const dx=t.clientX-x0, dy=t.clientY-y0;
-        if(Math.hypot(dx,dy)>MOVE_TOL){ moved=true; clearTimers(); }
-      }, {passive:true});
+      el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; t0=Date.now(); x0=t.clientX; y0=t.clientY; startLong(); }, {passive:true});
+      el.addEventListener('touchmove', (e)=>{ const t=e.changedTouches[0]; const dx=t.clientX-x0,dy=t.clientY-y0; if(Math.hypot(dx,dy)>MOVE_TOL){ moved=true; clearTimers(); } }, {passive:true});
       el.addEventListener('touchcancel', ()=>{ clearTimers(); }, {passive:true});
-      el.addEventListener('touchend', ()=>{ 
-        const dt=Date.now()-t0; clearTimers();
-        if(!didLong && !moved && dt<350){ openOrAssign(i); }
-      }, {passive:true});
-
-      // Fallback souris (desktop)
-      let md=false, t0m=0;
+      el.addEventListener('touchend', ()=>{ const dt=Date.now()-t0; clearTimers(); if(!didLong && !moved && dt<350){ openOrAssign(i); } }, {passive:true});
+      let md=false,t0m=0;
       el.addEventListener('mousedown', (e)=>{ if(e.target===stackInput) return; md=true; t0m=Date.now(); startLong(); });
       el.addEventListener('mouseleave', ()=>{ md=false; clearTimers(); });
       el.addEventListener('mouseup', (e)=>{ if(e.target===stackInput) return; const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
@@ -320,14 +330,11 @@ textarea{min-height:110px;resize:vertical}
     if(s.playerId){ openPlayerModal(s.playerId, seatIdx); }
     else { assignSeat(seatIdx); }
   }
-
   function assignSeat(seatIdx){
     const name=prompt("Nom/Pseudo du joueur à assigner ? (ou vide pour choisir existant)");
     if(name && name.trim()){
       const id=createPlayer({name:name.trim(),alias:""});
-      state.seats.map[seatIdx].playerId=id;
-      save(); drawSeats(); renderPlayers();
-      return;
+      state.seats.map[seatIdx].playerId=id; save(); drawSeats(); renderPlayers(); return;
     }
     const players=Object.values(state.players);
     if(players.length===0){ alert("Aucun joueur enregistré."); return; }
@@ -338,19 +345,15 @@ textarea{min-height:110px;resize:vertical}
     state.seats.map[seatIdx].playerId=found.id; save(); drawSeats();
   }
 
-  // Notes rapides
+  /* ---------- Notes rapides ---------- */
   function openSeatNoteModal(seatIdx){
     document.getElementById('snmTitle').textContent="Note rapide – Siège "+seatIdx;
     const ta=document.getElementById('snmText'); ta.value=""; ta.focus();
     const saveNote=()=>{
-      const t=ta.value.trim();
-      if(!t){ alert("Note vide."); return; }
+      const t=ta.value.trim(); if(!t){ alert("Note vide."); return; }
       state.seats.map[seatIdx].notes.push(t);
       const pid=state.seats.map[seatIdx].playerId;
-      if(pid){
-        const p=state.players[pid];
-        p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t;
-      }
+      if(pid){ const p=state.players[pid]; p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t; }
       save(); drawSeats(); renderPlayers();
       document.getElementById('seatNoteModal').style.display='none';
     };
@@ -360,9 +363,8 @@ textarea{min-height:110px;resize:vertical}
     document.getElementById('seatNoteModal').style.display='flex';
   }
 
-  // Players
+  /* ---------- Joueurs ---------- */
   function createPlayer({name,alias}){ const id=uid(); state.players[id]={id,name,alias,tags:[],notes:"",lastSeenWhere:"",lastSeenWhen:"",photo:null}; save(); return id; }
-
   function renderPlayers(){
     const q=(document.getElementById('searchInput').value||'').toLowerCase();
     const list=document.getElementById('playersList'); list.innerHTML='';
@@ -385,7 +387,6 @@ textarea{min-height:110px;resize:vertical}
       list.appendChild(row);
     });
   }
-
   function openPlayerModal(id){
     const p=state.players[id]; if(!p) return;
     document.getElementById('pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
@@ -419,7 +420,6 @@ textarea{min-height:110px;resize:vertical}
       p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
     };
   }
-
   function renderPlayerTagChips(p){
     const cont=document.getElementById('pmTagList'); cont.innerHTML='';
     customTags.forEach(tag=>{
@@ -430,7 +430,7 @@ textarea{min-height:110px;resize:vertical}
     });
   }
 
-  // Helpers
+  /* ---------- Helpers ---------- */
   function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) ); }
   function fileToResizedDataURL(file, maxW, maxH){
     return new Promise((resolve,reject)=>{
@@ -443,22 +443,23 @@ textarea{min-height:110px;resize:vertical}
       rdr.onerror=reject; rdr.readAsDataURL(file);
     });
   }
+  function download(name, content, type='application/json'){
+    const blob=new Blob([content],{type});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
 
-  // Export / Import
-  document.getElementById('btnExport').onclick=()=>{
-    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='poker-notes.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  };
-  document.getElementById('btnCopy').onclick=async ()=>{
-    const s=JSON.stringify(state,null,2);
-    if(navigator.clipboard && window.isSecureContext){ try{ await navigator.clipboard.writeText(s); alert("Copié."); }catch(e){ alert("Copie refusée."); } }
-    else { document.getElementById('copyFallback').style.display='block'; const ta=document.getElementById('jsonArea'); ta.value=s; ta.focus(); ta.select(); }
+  /* ---------- Export JSON-only / Import / Wipe ---------- */
+  document.getElementById('btnExportJSON').onclick=()=>{
+    download('poker-notes.json', JSON.stringify(state,null,2), 'application/json');
   };
   document.getElementById('btnImport').onclick=()=>{
     const f=document.getElementById('importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
     const rdr=new FileReader(); rdr.onload=e=>{
-      try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.'); state=obj; ensureSeatDefaults(); save(); drawSeats(); renderPlayers(); alert('Import OK.'); }
-      catch(err){ alert('Erreur import.'); }
+      try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.');
+        state=obj; ensureSeatDefaults(); save(); drawSeats(); renderPlayers(); alert('Import OK.');
+      } catch(err){ alert('Erreur import.'); }
     }; rdr.readAsText(f);
   };
   document.getElementById('btnWipe').onclick=()=>{
@@ -466,7 +467,19 @@ textarea{min-height:110px;resize:vertical}
     localStorage.removeItem(LS_KEY); state={players:{},seats:{count:9,tableName:'',map:{}}}; initSeats(9); save(); drawSeats(); renderPlayers();
   };
 
-  // Wiring
+  /* ---------- PIN settings ---------- */
+  document.getElementById('btnSetPin').onclick=()=>{
+    const cur=getPin(); const p1=prompt("Nouveau PIN (4–6 chiffres):", cur||""); if(!p1) return;
+    if(!/^\d{4,6}$/.test(p1)){ alert("PIN invalide (4–6 chiffres)."); return; }
+    const p2=prompt("Confirme le PIN:",""); if(p2!==p1){ alert("Mismatch."); return; }
+    setPin(p1); alert("PIN enregistré.");
+  };
+  document.getElementById('btnRemovePin').onclick=()=>{
+    if(!getPin()) { alert("Pas de PIN défini."); return; }
+    if(confirm("Retirer le PIN ?")){ setPin(""); alert("PIN retiré."); }
+  };
+
+  /* ---------- Wiring global ---------- */
   document.getElementById('seatCount').onchange=e=>{ const n=parseInt(e.target.value,10); initSeats(n); save(); drawSeats(true); };
   document.getElementById('tableName').oninput=e=>{ state.seats.tableName=e.target.value; save(); };
   document.getElementById('btnClearTable').onclick=()=>{
@@ -474,11 +487,11 @@ textarea{min-height:110px;resize:vertical}
     Object.keys(state.seats.map).forEach(k=>{ state.seats.map[k].playerId=null; state.seats.map[k].notes=[]; state.seats.map[k].stack=""; }); save(); drawSeats(true);
   };
   document.getElementById('btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
+  document.getElementById('searchInput').oninput=renderPlayers;
 
-  // Init
-  load();
-  if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
-  ensureSeatDefaults();
+  /* ---------- Init ---------- */
+  load(); if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
+  requirePinIfSet();
   requestAnimationFrame(()=>{ drawSeats(true); renderQuickTags(); }); renderPlayers();
 })();
 </script>

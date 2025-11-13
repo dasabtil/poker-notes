@@ -28,14 +28,18 @@ textarea{min-height:110px;resize:vertical}
 /* TABLE */
 .table-wrap{position:relative;aspect-ratio:1/1;width:100%;max-width:620px;margin:0 auto}
 .table-circle{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px dashed var(--outline)}
-.seat{position:absolute;width:96px;height:96px;border-radius:12px;border:1px solid var(--outline);
-      background:var(--card);display:flex;align-items:center;justify-content:center;padding:6px;
+.seat{position:absolute;width:100px;height:118px;border-radius:12px;border:1px solid var(--outline);
+      background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:6px 6px 8px;
       text-align:center;touch-action:manipulation;cursor:pointer}
 .seat.assigned{outline:2px solid var(--blue)}
-.seat .seat-avatar{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);object-fit:cover;display:block}
-.seat .placeholder{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);display:flex;align-items:center;justify-content:center}
+.seat .seat-avatar{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);object-fit:cover;display:block;margin-top:14px}
+.seat .placeholder{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);display:flex;align-items:center;justify-content:center;margin-top:14px}
 .seat .pos{position:absolute;top:4px;left:4px;background:#0009;border:1px solid var(--outline);color:#fff;
            font-size:11px;padding:2px 6px;border-radius:999px}
+/* Champ stack/BB sous la photo */
+.seat .stack{margin-top:6px;width:86px;padding:4px 6px;font-size:12px;text-align:center;border-radius:8px;border:1px solid var(--outline);
+             background:#101214;color:var(--fg)}
+.seat .stack::placeholder{color:#70757a}
 
 /* LISTE JOUEURS */
 .list{display:flex;flex-direction:column;gap:8px}
@@ -85,7 +89,7 @@ textarea{min-height:110px;resize:vertical}
       <div class="card">
         <div class="toolbar" id="quickTagsBar"></div>
         <div class="muted" style="font-size:12px;margin-top:6px">
-          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Saisie tag: tape le numéro de siège demandé.
+          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Tag = on te demande le numéro de siège.
         </div>
       </div>
     </div>
@@ -127,15 +131,14 @@ textarea{min-height:110px;resize:vertical}
       <div class="card">
         <h3>Conseils</h3>
         <ul>
-          <li>Table = photos uniquement + numéro de siège.</li>
-          <li>Tap bref → assigner/ouvrir ; appui long → note rapide.</li>
+          <li>Table = photos + numéro + stack/BB sous chaque siège.</li>
           <li>Tes données restent locales. Pense à exporter en fin de session.</li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- Player Modal -->
+  <!-- Modals -->
   <div class="modal" id="playerModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
     <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <div class="row" style="justify-content:space-between;align-items:center">
@@ -166,7 +169,6 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <!-- Seat Quick Note Modal -->
   <div class="modal" id="seatNoteModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
     <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <h3 id="snmTitle">Note rapide – Siège</h3>
@@ -179,7 +181,9 @@ textarea{min-height:110px;resize:vertical}
 <script>
 (function(){
   const LS_KEY='pokerNotesDataV1';
-  const defaultTags=["Reg","Recrea","CS","LAG","TAG","NIT","Whale","Maniac","Tilt","Shorty","GTO-ish","Spewy","Passive","Aggro","HeroCall","Overfold","Underbluff","Overbluff"];
+  const customTags=[
+    "Slowplayer","Hit or Fold","Believer","Non believer","Nit","Value thin","Sizing face up","Stabeur","CS","Donk any pair","Recrea fold SB","Fastplay FD deep","Fastplayer","Trop passif","Baleine","LAG","Snapcall bluffcatch"
+  ];
   let state={players:{},seats:{count:9,tableName:"",map:{}}};
 
   const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
@@ -194,10 +198,10 @@ textarea{min-height:110px;resize:vertical}
     if(id==='players') renderPlayers(); if(id==='table') { drawSeats(true); renderQuickTags(); }
   }));
 
-  // Quick tags (barre en bas)
+  // Quick tags (barre en bas avec tes tags)
   function renderQuickTags(){
     const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
-    defaultTags.forEach(tag=>{
+    customTags.forEach(tag=>{
       const b=document.createElement('div'); b.className='chip'; b.textContent=tag;
       b.addEventListener('click', ()=>{
         const sel=prompt("Ajouter/retirer ce tag à quel siège ? (numéro)");
@@ -214,22 +218,33 @@ textarea{min-height:110px;resize:vertical}
   }
 
   // Seats
-  function initSeats(n){ state.seats.count=n; state.seats.map={}; for(let i=1;i<=n;i++) state.seats.map[i]={playerId:null,notes:[]}; }
+  function initSeats(n){ state.seats.count=n; state.seats.map={}; for(let i=1;i<=n;i++) state.seats.map[i]={playerId:null,notes:[],stack:""}; }
+
+  function ensureSeatDefaults(){
+    // pour compatibilité si anciennes données sans "stack"
+    Object.keys(state.seats.map||{}).forEach(k=>{
+      const s=state.seats.map[k]; if(s && typeof s.stack==="undefined") s.stack="";
+    });
+  }
 
   function drawSeats(retry){
-    const n=state.seats.count;
+    const n=state.seats.count || 9;
+    if(!state.seats.map || Object.keys(state.seats.map).length===0) initSeats(n);
+    ensureSeatDefaults();
+
     $('#seatCount').value=String(n);
     $('#tableName').value=state.seats.tableName||'';
+
     const cont=$('#seatsContainer'); cont.innerHTML='';
     let w=cont.getBoundingClientRect().width; if(w===0 && retry){ requestAnimationFrame(()=>drawSeats(false)); return; } if(w===0) w=320;
     const center=w/2;
 
     for(let i=1;i<=n;i++){
-      const seat=state.seats.map[i]||{playerId:null,notes:[]};
+      const seat=state.seats.map[i]||{playerId:null,notes:[],stack:""};
       const el=document.createElement('div'); el.className='seat'+(seat.playerId?' assigned':'');
       /* Espacé vers l’extérieur */
-      const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-28;
-      const x=center+r*Math.cos(rad)-48, y=center+r*Math.sin(rad)-48; el.style.left=x+'px'; el.style.top=y+'px';
+      const angle=(i-1)*(360/n)-90, rad=angle*Math.PI/180, r=(w/2)-30;
+      const x=center+r*Math.cos(rad)-50, y=center+r*Math.sin(rad)-59; el.style.left=x+'px'; el.style.top=y+'px';
 
       // Numéro de siège
       const pos=document.createElement('div'); pos.className='pos'; pos.textContent=i; el.appendChild(pos);
@@ -245,6 +260,25 @@ textarea{min-height:110px;resize:vertical}
         </svg>`;
         el.appendChild(ph);
       }
+
+      // Champ stack/BB (petit, lisible)
+      const stackInput=document.createElement('input');
+      stackInput.className='stack';
+      stackInput.placeholder='ex: 35bb';
+      stackInput.inputMode='text';
+      stackInput.autocapitalize='off';
+      stackInput.autocomplete='off';
+      stackInput.spellcheck=false;
+      stackInput.value=seat.stack||'';
+      // Empêche que le toucher du champ déclenche les gestes du siège
+      ['touchstart','touchmove','touchend','mousedown','mouseup','click'].forEach(evt=>{
+        stackInput.addEventListener(evt, ev=>{ ev.stopPropagation(); }, {passive:true});
+      });
+      stackInput.addEventListener('input', ()=>{
+        state.seats.map[i].stack=stackInput.value.trim();
+        save();
+      });
+      el.appendChild(stackInput);
 
       // Gestes robustes : tap bref = assigner/ouvrir ; long-press = note rapide
       let t0=0, x0=0, y0=0, longTimer=null, didLong=false, moved=false;
@@ -271,9 +305,9 @@ textarea{min-height:110px;resize:vertical}
 
       // Fallback souris (desktop)
       let md=false, t0m=0;
-      el.addEventListener('mousedown', (e)=>{ md=true; t0m=Date.now(); startLong(); });
+      el.addEventListener('mousedown', (e)=>{ if(e.target===stackInput) return; md=true; t0m=Date.now(); startLong(); });
       el.addEventListener('mouseleave', ()=>{ md=false; clearTimers(); });
-      el.addEventListener('mouseup', (e)=>{ const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
+      el.addEventListener('mouseup', (e)=>{ if(e.target===stackInput) return; const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
 
       cont.appendChild(el);
     }
@@ -361,7 +395,7 @@ textarea{min-height:110px;resize:vertical}
     document.getElementById('pmNotes').value=p.notes||"";
     document.getElementById('pmLastSeenWhere').value=p.lastSeenWhere||"";
     document.getElementById('pmLastSeenWhen').value=p.lastSeenWhen||"";
-    renderPlayerTags(p);
+    renderPlayerTagChips(p);
     document.getElementById('playerModal').style.display='flex';
 
     document.getElementById('pmDelete').onclick=()=>{
@@ -386,12 +420,12 @@ textarea{min-height:110px;resize:vertical}
     };
   }
 
-  function renderPlayerTags(p){
+  function renderPlayerTagChips(p){
     const cont=document.getElementById('pmTagList'); cont.innerHTML='';
-    defaultTags.forEach(tag=>{
+    customTags.forEach(tag=>{
       const el=document.createElement('div'); el.className='pill'; el.textContent=tag; el.style.cursor='pointer';
       if(p.tags&&p.tags.includes(tag)) el.style.outline='2px solid var(--accent)';
-      el.addEventListener('click', ()=>{ p.tags=p.tags||[]; const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag); save(); renderPlayerTags(p); renderPlayers(); drawSeats(); }, {passive:true});
+      el.addEventListener('click', ()=>{ p.tags=p.tags||[]; const i=p.tags.indexOf(tag); if(i>=0) p.tags.splice(i,1); else p.tags.push(tag); save(); renderPlayerTagChips(p); renderPlayers(); drawSeats(); }, {passive:true});
       cont.appendChild(el);
     });
   }
@@ -423,7 +457,7 @@ textarea{min-height:110px;resize:vertical}
   document.getElementById('btnImport').onclick=()=>{
     const f=document.getElementById('importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
     const rdr=new FileReader(); rdr.onload=e=>{
-      try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.'); state=obj; save(); drawSeats(); renderPlayers(); alert('Import OK.'); }
+      try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.'); state=obj; ensureSeatDefaults(); save(); drawSeats(); renderPlayers(); alert('Import OK.'); }
       catch(err){ alert('Erreur import.'); }
     }; rdr.readAsText(f);
   };
@@ -437,12 +471,14 @@ textarea{min-height:110px;resize:vertical}
   document.getElementById('tableName').oninput=e=>{ state.seats.tableName=e.target.value; save(); };
   document.getElementById('btnClearTable').onclick=()=>{
     if(!confirm('Retirer tous les joueurs de la table ?')) return;
-    Object.keys(state.seats.map).forEach(k=>{ state.seats.map[k].playerId=null; state.seats.map[k].notes=[]; }); save(); drawSeats(true);
+    Object.keys(state.seats.map).forEach(k=>{ state.seats.map[k].playerId=null; state.seats.map[k].notes=[]; state.seats.map[k].stack=""; }); save(); drawSeats(true);
   };
   document.getElementById('btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
 
   // Init
-  load(); if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
+  load();
+  if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
+  ensureSeatDefaults();
   requestAnimationFrame(()=>{ drawSeats(true); renderQuickTags(); }); renderPlayers();
 })();
 </script>

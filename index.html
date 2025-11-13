@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>NP – iPhone</title>
+<title>PokerNote</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PokerNote">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 :root{--bg:#0e0f10;--fg:#f2f2f2;--muted:#a5a7ab;--card:#1a1c1f;--accent:#4caf50;--danger:#e53935;--blue:#2196f3;--outline:#2a2d31}
@@ -55,16 +56,16 @@ textarea{min-height:110px;resize:vertical}
 </style>
 </head>
 <body>
-  <!-- Écran PIN -->
+  <!-- Écran PIN (4 chiffres) -->
   <div id="pinLock">
     <div id="pinBox">
       <h3>Déverrouiller</h3>
-      <p class="muted" id="pinMsg">Entre ton code PIN</p>
-      <input id="pinInput" placeholder="PIN" inputmode="numeric" maxlength="6" />
+      <p class="muted" id="pinMsg">Entre ton code PIN (4 chiffres)</p>
+      <input id="pinInput" placeholder="PIN" inputmode="numeric" maxlength="4" />
       <div class="spacer"></div>
       <div class="row">
-        <button class="btn btn-primary" id="pinOk">OK</button>
-        <button class="btn" id="pinCancel">Quitter</button>
+        <button class="btn btn-primary" id="pinOk" type="button">OK</button>
+        <button class="btn" id="pinCancel" type="button">Quitter</button>
       </div>
     </div>
   </div>
@@ -158,8 +159,8 @@ textarea{min-height:110px;resize:vertical}
         </ul>
         <div class="spacer"></div>
         <div class="row">
-          <button class="btn" id="btnSetPin">Définir/Changer PIN</button>
-          <button class="btn btn-danger" id="btnRemovePin">Retirer PIN</button>
+          <button class="btn" id="btnSetPin" type="button">Définir/Changer PIN (4 chiffres)</button>
+          <button class="btn btn-danger" id="btnRemovePin" type="button">Retirer PIN</button>
         </div>
       </div>
     </div>
@@ -218,22 +219,22 @@ textarea{min-height:110px;resize:vertical}
   const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein. Exporte puis nettoie."); } };
   const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players && o.seats) state=o; }catch(e){} } };
 
-  /* ---------- PIN ---------- */
+  /* ---------- PIN (exactement 4 chiffres) ---------- */
   function getPin(){ return localStorage.getItem(PIN_KEY)||""; }
   function setPin(pin){ if(pin) localStorage.setItem(PIN_KEY,pin); else localStorage.removeItem(PIN_KEY); }
   function requirePinIfSet(){
     const pin=getPin(); if(!pin) return;
     $('#pinLock').style.display='flex';
-    $('#pinMsg').textContent="Entre ton code PIN";
+    $('#pinMsg').textContent="Entre ton code PIN (4 chiffres)";
     $('#pinInput').value="";
     setTimeout(()=>$('#pinInput').focus(),50);
-    const ok=()=>{
+    const validate=()=>{
       if($('#pinInput').value===pin){ $('#pinLock').style.display='none'; }
       else { $('#pinMsg').textContent="PIN incorrect. Réessaie."; $('#pinInput').value=""; $('#pinInput').focus(); }
     };
-    $('#pinOk').onclick=ok;
+    $('#pinOk').onclick=validate;
     $('#pinCancel').onclick=()=>{ location.href='about:blank'; };
-    $('#pinInput').onkeydown=(e)=>{ if(e.key==='Enter') ok(); };
+    $('#pinInput').onkeydown=(e)=>{ if(e.key==='Enter') validate(); };
   }
 
   /* ---------- Onglets ---------- */
@@ -244,7 +245,7 @@ textarea{min-height:110px;resize:vertical}
     if(id==='table') { drawSeats(true); renderQuickTags(); }
   }));
 
-  /* ---------- Barre de tags rapide (tags perso) ---------- */
+  /* ---------- Barre de tags rapide ---------- */
   function renderQuickTags(){
     const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
     customTags.forEach(tag=>{
@@ -358,7 +359,7 @@ textarea{min-height:110px;resize:vertical}
       document.getElementById('seatNoteModal').style.display='none';
     };
     document.getElementById('snmSave').onclick=saveNote;
-    ta.onkeydown=(e)=>{ if(e.key==='Enter' && (e.metaKey||e.ctrlKey)){ e.preventDefault(); saveNote(); } };
+    ta.onkeydown=(e)=>{ if(e.key==='Enter') { e.preventDefault(); saveNote(); } };
     document.getElementById('snmClose').onclick=()=> document.getElementById('seatNoteModal').style.display='none';
     document.getElementById('seatNoteModal').style.display='flex';
   }
@@ -450,7 +451,7 @@ textarea{min-height:110px;resize:vertical}
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 
-  /* ---------- Export JSON-only / Import / Wipe ---------- */
+  /* ---------- Export / Import / Wipe ---------- */
   document.getElementById('btnExportJSON').onclick=()=>{
     download('poker-notes.json', JSON.stringify(state,null,2), 'application/json');
   };
@@ -469,13 +470,16 @@ textarea{min-height:110px;resize:vertical}
 
   /* ---------- PIN settings ---------- */
   document.getElementById('btnSetPin').onclick=()=>{
-    const cur=getPin(); const p1=prompt("Nouveau PIN (4–6 chiffres):", cur||""); if(!p1) return;
-    if(!/^\d{4,6}$/.test(p1)){ alert("PIN invalide (4–6 chiffres)."); return; }
-    const p2=prompt("Confirme le PIN:",""); if(p2!==p1){ alert("Mismatch."); return; }
+    const cur=getPin();
+    const p1=prompt("Nouveau PIN (exactement 4 chiffres):", cur||"");
+    if(!p1) return;
+    if(!/^\d{4}$/.test(p1)){ alert("PIN invalide. Mets exactement 4 chiffres."); return; }
+    const p2=prompt("Confirme le PIN:");
+    if(p2!==p1){ alert("Les deux PIN ne correspondent pas."); return; }
     setPin(p1); alert("PIN enregistré.");
   };
   document.getElementById('btnRemovePin').onclick=()=>{
-    if(!getPin()) { alert("Pas de PIN défini."); return; }
+    if(!getPin()) { alert("Aucun PIN défini."); return; }
     if(confirm("Retirer le PIN ?")){ setPin(""); alert("PIN retiré."); }
   };
 
@@ -490,8 +494,9 @@ textarea{min-height:110px;resize:vertical}
   document.getElementById('searchInput').oninput=renderPlayers;
 
   /* ---------- Init ---------- */
-  load(); if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
-  requirePinIfSet();
+  load();
+  if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
+  requirePinIfSet(); // <- verrouillage à l’ouverture si PIN défini
   requestAnimationFrame(()=>{ drawSeats(true); renderQuickTags(); }); renderPlayers();
 })();
 </script>

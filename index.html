@@ -8,17 +8,10 @@
 <meta name="apple-mobile-web-app-title" content="PokerNote">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
-/* --- Reset & thèmes --- */
 :root{--bg:#0e0f10;--fg:#f2f2f2;--muted:#a5a7ab;--card:#1a1c1f;--accent:#4caf50;--danger:#e53935;--blue:#2196f3;--outline:#2a2d31}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:#000;color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Helvetica Neue",Arial}
-
-/* --- IMPORTANT : masquer l'app tant que PIN non validé --- */
-#appWrapper{display:none}        /* rendu seulement après déverrouillage */
-body.locked{overflow:hidden}     /* pas de scroll arrière-plan */
-
-/* --- UI globale --- */
-.app{max-width:700px;margin:0 auto;padding:12px 12px 84px;background:var(--bg)}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Helvetica Neue",Arial}
+.app{max-width:700px;margin:0 auto;padding:12px 12px 84px}
 .topbar{position:sticky;top:0;background:var(--bg);padding:8px 12px 10px;border-bottom:1px solid var(--outline);z-index:5}
 .tabs{display:flex;gap:8px;overflow-x:auto;padding:6px 0}
 .tab{flex:1 1 auto;text-align:center;padding:10px;border:1px solid var(--outline);border-radius:10px;background:var(--card);cursor:pointer;user-select:none}
@@ -33,7 +26,7 @@ input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px soli
 textarea{min-height:110px;resize:vertical}
 .muted{color:var(--muted)}.spacer{height:12px}
 
-/* --- Table & sièges --- */
+/* TABLE */
 .table-wrap{position:relative;aspect-ratio:1/1;width:100%;max-width:620px;margin:0 auto}
 .table-circle{position:absolute;inset:0;margin:auto;border-radius:50%;border:1px dashed var(--outline)}
 .seat{position:absolute;width:100px;height:118px;border-radius:12px;border:1px solid var(--outline);
@@ -42,13 +35,13 @@ textarea{min-height:110px;resize:vertical}
 .seat.assigned{outline:2px solid var(--blue)}
 .seat .seat-avatar{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);object-fit:cover;display:block;margin-top:14px}
 .seat .placeholder{width:72px;height:72px;border-radius:12px;border:1px solid var(--outline);display:flex;align-items:center;justify-content:center;margin-top:14px}
-.seat .pos{position:absolute;top:4px;left:4px;background:#000;border:1px solid var(--outline);color:#fff;
+.seat .pos{position:absolute;top:4px;left:4px;background:#0009;border:1px solid var(--outline);color:#fff;
            font-size:11px;padding:2px 6px;border-radius:999px}
 .seat .stack{margin-top:6px;width:86px;padding:4px 6px;font-size:12px;text-align:center;border-radius:8px;border:1px solid var(--outline);
              background:#101214;color:var(--fg)}
 .seat .stack::placeholder{color:#70757a}
 
-/* --- Liste joueurs --- */
+/* LISTE JOUEURS */
 .list{display:flex;flex-direction:column;gap:8px}
 .player-row{display:flex;gap:10px;align-items:center}
 .avatar{width:56px;height:56px;border-radius:10px;background:#0b0c0d;border:1px solid var(--outline);object-fit:cover;flex:0 0 56px}
@@ -57,14 +50,14 @@ textarea{min-height:110px;resize:vertical}
 .toolbar{display:flex;gap:8px;overflow:auto}
 .chip{padding:10px 12px;border-radius:999px;border:1px solid var(--outline);background:#121417;font-size:15px;cursor:pointer;user-select:none}
 
-/* --- PIN overlay (OPAQUE) --- */
-#pinLock{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:9999}
+/* PIN overlay – opaque mais n'affecte pas le layout */
+#pinLock{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:9999}
 #pinBox{background:var(--card);border:1px solid var(--outline);border-radius:16px;padding:16px;max-width:320px;width:90%}
 </style>
 </head>
-<body class="locked">
-  <!-- Écran PIN (4 chiffres) – totalement opaque -->
-  <div id="pinLock" aria-hidden="false">
+<body>
+  <!-- Écran PIN (4 chiffres) -->
+  <div id="pinLock" aria-hidden="true">
     <div id="pinBox">
       <h3>Déverrouiller</h3>
       <p class="muted" id="pinMsg">Entre ton code PIN (4 chiffres)</p>
@@ -77,96 +70,93 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <!-- Application (masquée par défaut jusqu'au déverrouillage) -->
-  <div id="appWrapper" aria-hidden="true">
-    <div class="topbar">
-      <div class="tabs">
-        <div class="tab active" data-tab="table">Table</div>
-        <div class="tab" data-tab="players">Joueurs</div>
-        <div class="tab" data-tab="export">Export / Import</div>
-        <div class="tab" data-tab="help">Aide</div>
+  <div class="topbar">
+    <div class="tabs">
+      <div class="tab active" data-tab="table">Table</div>
+      <div class="tab" data-tab="players">Joueurs</div>
+      <div class="tab" data-tab="export">Export / Import</div>
+      <div class="tab" data-tab="help">Aide</div>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- TABLE -->
+    <div id="table" class="section active">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="row" style="gap:6px;align-items:center">
+            <strong>Configuration :</strong>
+            <select id="seatCount">
+              <option value="6">6-max</option>
+              <option value="8">8-max</option>
+              <option value="9" selected>9-max</option>
+              <option value="10">10-max</option>
+            </select>
+            <input id="tableName" placeholder="Nom de la table / Session" />
+          </div>
+          <button class="btn" id="btnClearTable">Vider la table</button>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="table-wrap">
+        <div class="table-circle" id="tableCircle"></div>
+        <div id="seatsContainer"></div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="card">
+        <div class="toolbar" id="quickTagsBar"></div>
+        <div class="muted" style="font-size:12px;margin-top:6px">
+          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Tag = tape le numéro de siège demandé.
+        </div>
       </div>
     </div>
 
-    <div class="app">
-      <!-- TABLE -->
-      <div id="table" class="section active">
-        <div class="card">
-          <div class="row" style="justify-content:space-between">
-            <div class="row" style="gap:6px;align-items:center">
-              <strong>Configuration :</strong>
-              <select id="seatCount">
-                <option value="6">6-max</option>
-                <option value="8">8-max</option>
-                <option value="9" selected>9-max</option>
-                <option value="10">10-max</option>
-              </select>
-              <input id="tableName" placeholder="Nom de la table / Session" />
-            </div>
-            <button class="btn" id="btnClearTable">Vider la table</button>
-          </div>
-        </div>
-
-        <div class="spacer"></div>
-        <div class="table-wrap">
-          <div class="table-circle" id="tableCircle"></div>
-          <div id="seatsContainer"></div>
-        </div>
-
-        <div class="spacer"></div>
-        <div class="card">
-          <div class="toolbar" id="quickTagsBar"></div>
-          <div class="muted" style="font-size:12px;margin-top:6px">
-            Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Tag = tape le numéro de siège demandé.
-          </div>
-        </div>
+    <!-- JOUEURS -->
+    <div id="players" class="section">
+      <div class="row">
+        <input id="searchInput" placeholder="Rechercher par nom, tag..." />
+        <button class="btn" id="btnAddPlayer">Ajouter</button>
       </div>
+      <div class="spacer"></div>
+      <div class="list" id="playersList"></div>
+    </div>
 
-      <!-- JOUEURS -->
-      <div id="players" class="section">
+    <!-- EXPORT / IMPORT -->
+    <div id="export" class="section">
+      <div class="card">
+        <h3>Export</h3>
+        <p class="muted">Rien n’est envoyé en ligne. Les fichiers sont générés sur l’iPhone.</p>
         <div class="row">
-          <input id="searchInput" placeholder="Rechercher par nom, tag..." />
-          <button class="btn" id="btnAddPlayer">Ajouter</button>
-        </div>
-        <div class="spacer"></div>
-        <div class="list" id="playersList"></div>
-      </div>
-
-      <!-- EXPORT / IMPORT -->
-      <div id="export" class="section">
-        <div class="card">
-          <h3>Export</h3>
-          <p class="muted">Rien n’est envoyé en ligne. Les fichiers sont générés sur l’iPhone.</p>
-          <div class="row">
-            <button class="btn btn-primary" id="btnExportJSON" type="button">Exporter JSON (ré-importable)</button>
-          </div>
-        </div>
-
-        <div class="spacer"></div>
-        <div class="card">
-          <h3>Import</h3>
-          <input type="file" id="importFile" accept="application/json" />
-          <div class="row">
-            <button class="btn" id="btnImport" type="button">Importer JSON</button>
-            <button class="btn btn-danger" id="btnWipe" type="button">Effacer toutes les données</button>
-          </div>
+          <button class="btn btn-primary" id="btnExportJSON" type="button">Exporter JSON (ré-importable)</button>
         </div>
       </div>
 
-      <!-- AIDE / SÉCURITÉ -->
-      <div id="help" class="section">
-        <div class="card">
-          <h3>Conseils & Sécurité</h3>
-          <ul>
-            <li>Tes données restent sur l’iPhone (stockage du site). Sauvegarde JSON régulièrement.</li>
-            <li>Supprimer les “données de site” efface aussi l’app (notes + photos). Pense à exporter.</li>
-            <li>Les photos sont des copies compressées : effacer la photo de ta pellicule ne l’efface pas ici.</li>
-          </ul>
-          <div class="spacer"></div>
-          <div class="row">
-            <button class="btn" id="btnSetPin" type="button">Définir/Changer PIN (4 chiffres)</button>
-            <button class="btn btn-danger" id="btnRemovePin" type="button">Retirer PIN</button>
-          </div>
+      <div class="spacer"></div>
+      <div class="card">
+        <h3>Import</h3>
+        <input type="file" id="importFile" accept="application/json" />
+        <div class="row">
+          <button class="btn" id="btnImport" type="button">Importer JSON</button>
+          <button class="btn btn-danger" id="btnWipe" type="button">Effacer toutes les données</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIDE / SÉCURITÉ -->
+    <div id="help" class="section">
+      <div class="card">
+        <h3>Conseils & Sécurité</h3>
+        <ul>
+          <li>Tes données restent sur l’iPhone (stockage du site). Sauvegarde JSON régulièrement.</li>
+          <li>Supprimer les “données de site” efface aussi l’app (notes + photos). Pense à exporter.</li>
+          <li>Les photos sont des copies compressées : effacer la photo de ta pellicule ne l’efface pas ici.</li>
+        </ul>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="btn" id="btnSetPin" type="button">Définir/Changer PIN (4 chiffres)</button>
+          <button class="btn btn-danger" id="btnRemovePin" type="button">Retirer PIN</button>
         </div>
       </div>
     </div>
@@ -174,7 +164,7 @@ textarea{min-height:110px;resize:vertical}
 
   <!-- MODALS -->
   <div class="modal" id="playerModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
-    <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
+    <div class="sheet" style="width:100%;max-width:700px;background:var(--card);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 id="pmTitle">Joueur</h3>
         <button class="btn btn-danger" id="pmDelete" type="button">Supprimer</button>
@@ -204,7 +194,7 @@ textarea{min-height:110px;resize:vertical}
   </div>
 
   <div class="modal" id="seatNoteModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
-    <div class="sheet" style="width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
+    <div class="sheet" style="width:100%;max-width:700px;background:var(--card);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
       <h3 id="snmTitle">Note rapide – Siège</h3>
       <textarea id="snmText" placeholder="Ex: Limp UTG, call 3bet OOP, donk 1/2, show KTo..."></textarea>
       <div class="spacer"></div>
@@ -225,45 +215,20 @@ textarea{min-height:110px;resize:vertical}
   const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein. Exporte puis nettoie."); } };
   const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players && o.seats) state=o; }catch(e){} } };
 
-  /* ---------- PIN (4 chiffres) + visibilité ---------- */
+  /* ---------- PIN (exactement 4 chiffres) ---------- */
   function getPin(){ return localStorage.getItem(PIN_KEY)||""; }
   function setPin(pin){ if(pin) localStorage.setItem(PIN_KEY,pin); else localStorage.removeItem(PIN_KEY); }
-
-  // Montre l'app et enlève le lock visuel
-  function showApp(){
-    const app=document.getElementById('appWrapper');
-    app.style.display='block';
-    app.setAttribute('aria-hidden','false');
-    document.body.classList.remove('locked');
-    document.getElementById('pinLock').style.display='none';
-    document.getElementById('pinLock').setAttribute('aria-hidden','true');
-  }
-
-  // Si pas de PIN, on montre directement l'app après init
-  function handleVisibilityAfterInit(){
-    if(!getPin()){ showApp(); } // pas de PIN => pas d'écran opaque
-    else{
-      // rester sur l'écran PIN noir
-      const input=$('#pinInput');
-      setTimeout(()=> input && input.focus(), 50);
-    }
-  }
-
   function requirePinIfSet(){
-    const pin=getPin();
-    if(!pin){ return; } // rien à faire, showApp sera appelé après init
-    $('#pinLock').style.display='flex';
-    $('#pinLock').setAttribute('aria-hidden','false');
+    const pin=getPin(); if(!pin) return;
+    const lock=$('#pinLock');
+    lock.style.display='flex'; lock.setAttribute('aria-hidden','false');
     $('#pinMsg').textContent="Entre ton code PIN (4 chiffres)";
-    $('#pinInput').value="";
-
-    const validate=()=>{
-      if($('#pinInput').value===pin){ showApp(); }
-      else{ $('#pinMsg').textContent="PIN incorrect. Réessaie."; $('#pinInput').value=""; $('#pinInput').focus(); }
-    };
+    const input=$('#pinInput'); input.value=""; setTimeout(()=>input.focus(),50);
+    const validate=()=>{ if(input.value===pin){ lock.style.display='none'; lock.setAttribute('aria-hidden','true'); }
+                         else { $('#pinMsg').textContent="PIN incorrect. Réessaie."; input.value=""; input.focus(); } };
     $('#pinOk').onclick=validate;
     $('#pinCancel').onclick=()=>{ location.href='about:blank'; };
-    $('#pinInput').onkeydown=(e)=>{ if(e.key==='Enter') validate(); };
+    input.onkeydown=(e)=>{ if(e.key==='Enter') validate(); };
   }
 
   /* ---------- Onglets ---------- */
@@ -306,7 +271,10 @@ textarea{min-height:110px;resize:vertical}
     $('#tableName').value=state.seats.tableName||'';
 
     const cont=$('#seatsContainer'); cont.innerHTML='';
-    let w=cont.getBoundingClientRect().width; if(w===0 && retry){ requestAnimationFrame(()=>drawSeats(false)); return; } if(w===0) w=320;
+    let w=cont.getBoundingClientRect().width;
+    if(w===0 && retry){ requestAnimationFrame(()=>drawSeats(false)); return; }
+    if(w===0) w=320; // fallback safe
+
     const center=w/2;
 
     for(let i=1;i<=n;i++){
@@ -336,7 +304,7 @@ textarea{min-height:110px;resize:vertical}
       stackInput.addEventListener('input', ()=>{ state.seats.map[i].stack=stackInput.value.trim(); save(); });
       el.appendChild(stackInput);
 
-      // Gestes
+      // Gestes (tap bref / appui long)
       let t0=0,x0=0,y0=0,longTimer=null,didLong=false,moved=false; const MOVE_TOL=14;
       function startLong(){ didLong=false; moved=false; longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500); }
       function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
@@ -505,7 +473,7 @@ textarea{min-height:110px;resize:vertical}
     if(!/^\d{4}$/.test(p1)){ alert("PIN invalide. Mets exactement 4 chiffres."); return; }
     const p2=prompt("Confirme le PIN:");
     if(p2!==p1){ alert("Les deux PIN ne correspondent pas."); return; }
-    setPin(p1); alert("PIN enregistré. Ferme l’app et rouvre pour tester.");
+    setPin(p1); alert("PIN enregistré. Ferme et rouvre pour tester.");
   };
   document.getElementById('btnRemovePin').onclick=()=>{
     if(!getPin()) { alert("Aucun PIN défini."); return; }
@@ -524,12 +492,9 @@ textarea{min-height:110px;resize:vertical}
 
   /* ---------- Init ---------- */
   load();
-  // Si pas de PIN, on affichera l'app de suite; sinon on reste sur l'écran noir PIN
-  requirePinIfSet();
-  // préparer l'UI, mais elle reste masquée tant que showApp() n'est pas appelé
+  if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
   requestAnimationFrame(()=>{ drawSeats(true); renderQuickTags(); }); renderPlayers();
-  // gestion de la visibilité finale
-  handleVisibilityAfterInit();
+  requirePinIfSet(); // affiche seulement un overlay opaque, sans changer le layout
 })();
 </script>
 </body>

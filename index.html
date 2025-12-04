@@ -50,9 +50,18 @@ textarea{min-height:110px;resize:vertical}
 .toolbar{display:flex;gap:8px;overflow:auto}
 .chip{padding:10px 12px;border-radius:999px;border:1px solid var(--outline);background:#121417;font-size:15px;cursor:pointer;user-select:none}
 
-/* PIN overlay – opaque mais n'affecte pas le layout */
+/* PIN overlay – opaque, n'affecte pas le layout */
 #pinLock{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:9999}
 #pinBox{background:var(--card);border:1px solid var(--outline);border-radius:16px;padding:16px;max-width:320px;width:90%}
+
+/* Generic modal/sheet */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20}
+.sheet{width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px}
+.list-scroll{max-height:50vh;overflow:auto;border:1px solid var(--outline);border-radius:10px}
+.item{display:flex;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--outline);cursor:pointer}
+.item:last-child{border-bottom:none}
+.item:hover{background:#111318}
+.badge{padding:2px 6px;border-radius:8px;border:1px solid var(--outline);font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -108,7 +117,7 @@ textarea{min-height:110px;resize:vertical}
       <div class="card">
         <div class="toolbar" id="quickTagsBar"></div>
         <div class="muted" style="font-size:12px;margin-top:6px">
-          Tap bref = assigner/ouvrir • Appui long (0,5 s) = note rapide • Tag = tape le numéro de siège demandé.
+          Tap bref = ouvrir/assigner • Double-tap = note rapide • Long-press = menu d’actions • Stack éditable sous chaque siège.
         </div>
       </div>
     </div>
@@ -149,9 +158,9 @@ textarea{min-height:110px;resize:vertical}
       <div class="card">
         <h3>Conseils & Sécurité</h3>
         <ul>
-          <li>Tes données restent sur l’iPhone (stockage du site). Sauvegarde JSON régulièrement.</li>
-          <li>Supprimer les “données de site” efface aussi l’app (notes + photos). Pense à exporter.</li>
-          <li>Les photos sont des copies compressées : effacer la photo de ta pellicule ne l’efface pas ici.</li>
+          <li>Données locales (iPhone). Sauvegarde JSON régulièrement.</li>
+          <li>Effacer les “données de site” supprime notes + photos → pense à exporter.</li>
+          <li>Les photos sont des copies compressées : supprimer de la pellicule n’efface pas ici.</li>
         </ul>
         <div class="spacer"></div>
         <div class="row">
@@ -162,12 +171,15 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <!-- MODALS -->
-  <div class="modal" id="playerModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
-    <div class="sheet" style="width:100%;max-width:700px;background:var(--card);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
+  <!-- MODALS: Player editor -->
+  <div class="modal" id="playerModal">
+    <div class="sheet">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 id="pmTitle">Joueur</h3>
-        <button class="btn btn-danger" id="pmDelete" type="button">Supprimer</button>
+        <div class="row">
+          <button class="btn" id="pmAssignHere" type="button" title="Assigner à la table">Assigner</button>
+          <button class="btn btn-danger" id="pmDelete" type="button">Supprimer</button>
+        </div>
       </div>
       <div class="spacer"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -193,12 +205,50 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <div class="modal" id="seatNoteModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20">
-    <div class="sheet" style="width:100%;max-width:700px;background:var(--card);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px">
+  <!-- MODAL: Seat quick note -->
+  <div class="modal" id="seatNoteModal">
+    <div class="sheet">
       <h3 id="snmTitle">Note rapide – Siège</h3>
       <textarea id="snmText" placeholder="Ex: Limp UTG, call 3bet OOP, donk 1/2, show KTo..."></textarea>
       <div class="spacer"></div>
       <div class="row"><button class="btn btn-primary" id="snmSave" type="button">Ajouter</button><button class="btn" id="snmClose" type="button">Fermer</button></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Seat action menu (long-press) -->
+  <div class="modal" id="seatActionModal">
+    <div class="sheet">
+      <h3 id="samTitle">Actions – Siège</h3>
+      <div class="spacer"></div>
+      <div class="list-scroll" id="samList">
+        <!-- items injected -->
+      </div>
+      <div class="spacer"></div>
+      <div class="row"><button class="btn" id="samClose" type="button">Fermer</button></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Assign player to seat (search + avatars) -->
+  <div class="modal" id="assignModal">
+    <div class="sheet">
+      <h3 id="amTitle">Assigner un joueur</h3>
+      <div class="spacer"></div>
+      <input id="amSearch" placeholder="Rechercher / créer… (ex: Nuno)" />
+      <div class="spacer"></div>
+      <div class="list-scroll" id="amList"></div>
+      <div class="spacer"></div>
+      <div class="row"><button class="btn" id="amCancel" type="button">Annuler</button></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Seat picker (from players list) -->
+  <div class="modal" id="seatPickerModal">
+    <div class="sheet">
+      <h3 id="spTitle">Choisir un siège</h3>
+      <div class="spacer"></div>
+      <div class="list-scroll" id="spList"></div>
+      <div class="spacer"></div>
+      <div class="row"><button class="btn" id="spCancel" type="button">Annuler</button></div>
     </div>
   </div>
 
@@ -209,13 +259,16 @@ textarea{min-height:110px;resize:vertical}
   const customTags=["Slowplayer","Hit or Fold","Believer","Non believer","Nit","Value thin","Sizing face up","Stabeur","CS","Donk any pair","Recrea fold SB","Fastplay FD deep","Fastplayer","Trop passif","Baleine","LAG","Snapcall bluffcatch"];
 
   let state={players:{},seats:{count:9,tableName:"",map:{}}};
+  let currentSeatForMenu=null;   // siège visé par le long-press (menu)
+  let currentSeatForAssign=null; // siège visé par assignModal
+  let currentPlayerInModal=null; // id joueur ouvert
 
   const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
   const uid=()=>Math.random().toString(36).slice(2,10);
   const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein. Exporte puis nettoie."); } };
   const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players && o.seats) state=o; }catch(e){} } };
 
-  /* ---------- PIN (exactement 4 chiffres) ---------- */
+  /* ---------- PIN ---------- */
   function getPin(){ return localStorage.getItem(PIN_KEY)||""; }
   function setPin(pin){ if(pin) localStorage.setItem(PIN_KEY,pin); else localStorage.removeItem(PIN_KEY); }
   function requirePinIfSet(){
@@ -239,9 +292,9 @@ textarea{min-height:110px;resize:vertical}
     if(id==='table') { drawSeats(true); renderQuickTags(); }
   }));
 
-  /* ---------- Barre de tags rapide ---------- */
+  /* ---------- Tags rapides ---------- */
   function renderQuickTags(){
-    const bar=document.getElementById('quickTagsBar'); bar.innerHTML='';
+    const bar=$('#quickTagsBar'); bar.innerHTML='';
     customTags.forEach(tag=>{
       const b=document.createElement('div'); b.className='chip'; b.textContent=tag;
       b.addEventListener('click', ()=>{
@@ -273,8 +326,7 @@ textarea{min-height:110px;resize:vertical}
     const cont=$('#seatsContainer'); cont.innerHTML='';
     let w=cont.getBoundingClientRect().width;
     if(w===0 && retry){ requestAnimationFrame(()=>drawSeats(false)); return; }
-    if(w===0) w=320; // fallback safe
-
+    if(w===0) w=320;
     const center=w/2;
 
     for(let i=1;i<=n;i++){
@@ -304,18 +356,30 @@ textarea{min-height:110px;resize:vertical}
       stackInput.addEventListener('input', ()=>{ state.seats.map[i].stack=stackInput.value.trim(); save(); });
       el.appendChild(stackInput);
 
-      // Gestes (tap bref / appui long)
-      let t0=0,x0=0,y0=0,longTimer=null,didLong=false,moved=false; const MOVE_TOL=14;
-      function startLong(){ didLong=false; moved=false; longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatNoteModal(i); }, 500); }
+      // Gestes : tap (ouvrir/assigner), double-tap (note rapide), long-press (menu)
+      let tStart=0,x0=0,y0=0,longTimer=null,didLong=false,moved=false,lastTap=0; const MOVE_TOL=14;
+      function startLong(){ didLong=false; moved=false; longTimer=setTimeout(()=>{ didLong=true; longTimer=null; openSeatActionMenu(i); }, 500); }
       function clearTimers(){ if(longTimer){ clearTimeout(longTimer); longTimer=null; } }
-      el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; t0=Date.now(); x0=t.clientX; y0=t.clientY; startLong(); }, {passive:true});
-      el.addEventListener('touchmove', (e)=>{ const t=e.changedTouches[0]; const dx=t.clientX-x0,dy=t.clientY-y0; if(Math.hypot(dx,dy)>MOVE_TOL){ moved=true; clearTimers(); } }, {passive:true});
-      el.addEventListener('touchcancel', ()=>{ clearTimers(); }, {passive:true});
-      el.addEventListener('touchend', ()=>{ const dt=Date.now()-t0; clearTimers(); if(!didLong && !moved && dt<350){ openOrAssign(i); } }, {passive:true});
-      let md=false,t0m=0;
-      el.addEventListener('mousedown', (e)=>{ if(e.target===stackInput) return; md=true; t0m=Date.now(); startLong(); });
-      el.addEventListener('mouseleave', ()=>{ md=false; clearTimers(); });
-      el.addEventListener('mouseup', (e)=>{ if(e.target===stackInput) return; const dt=Date.now()-t0m; clearTimers(); if(md && !didLong && dt<350){ openOrAssign(i); } md=false; });
+
+      el.addEventListener('touchstart',(e)=>{ const t=e.changedTouches[0]; tStart=Date.now(); x0=t.clientX;y0=t.clientY; startLong(); },{passive:true});
+      el.addEventListener('touchmove',(e)=>{ const t=e.changedTouches[0]; const dx=t.clientX-x0,dy=t.clientY-y0; if(Math.hypot(dx,dy)>MOVE_TOL){ moved=true; clearTimers(); } },{passive:true});
+      el.addEventListener('touchcancel',()=>{ clearTimers(); },{passive:true});
+      el.addEventListener('touchend',()=>{ const now=Date.now(); const dt=now-tStart; clearTimers();
+        if(didLong||moved) return;
+        if(now-lastTap<300){ lastTap=0; openSeatNoteModal(i); return; } // double-tap
+        lastTap=now;
+        if(dt<350) openOrAssign(i);
+      },{passive:true});
+
+      let md=false, t0m=0, lastClick=0;
+      el.addEventListener('mousedown',(e)=>{ if(e.target===stackInput) return; md=true; t0m=Date.now(); startLong(); });
+      el.addEventListener('mouseleave',()=>{ md=false; clearTimers(); });
+      el.addEventListener('mouseup',(e)=>{ if(e.target===stackInput) return; const now=Date.now(); const dt=now-t0m; clearTimers();
+        if(!md) return; md=false;
+        if(now-lastClick<300){ lastClick=0; openSeatNoteModal(i); return; }
+        lastClick=now;
+        if(dt<350) openOrAssign(i);
+      });
 
       cont.appendChild(el);
     }
@@ -326,50 +390,172 @@ textarea{min-height:110px;resize:vertical}
   function openOrAssign(seatIdx){
     const s=state.seats.map[seatIdx];
     if(s.playerId){ openPlayerModal(s.playerId, seatIdx); }
-    else { assignSeat(seatIdx); }
+    else { openAssignModal(seatIdx); } // plus de prompt -> modal de sélection
   }
-  function assignSeat(seatIdx){
-    const name=prompt("Nom/Pseudo du joueur à assigner ? (ou vide pour choisir existant)");
-    if(name && name.trim()){
-      const id=createPlayer({name:name.trim(),alias:""});
-      state.seats.map[seatIdx].playerId=id; save(); drawSeats(); renderPlayers(); return;
+
+  /* ---------- Menu d’actions (long-press) ---------- */
+  function openSeatActionMenu(seatIdx){
+    currentSeatForMenu = seatIdx;
+    $('#samTitle').textContent = "Actions – Siège " + seatIdx;
+    const seat = state.seats.map[seatIdx];
+    const hasPlayer = !!(seat && seat.playerId);
+
+    const list = $('#samList'); list.innerHTML = "";
+
+    // Item utilitaire
+    const makeItem=(label, fn, danger=false)=>{
+      const div=document.createElement('div'); div.className='item'; div.innerHTML=`<div style="flex:1">${label}</div>`;
+      if(danger){ div.style.borderLeft='4px solid var(--danger)'; }
+      div.onclick=()=>{ fn(); $('#seatActionModal').style.display='none'; };
+      list.appendChild(div);
+    };
+
+    makeItem("Ajouter une note rapide", ()=>openSeatNoteModal(seatIdx));
+    makeItem("Modifier le stack (focus)", ()=>{
+      // met le focus sur l’input du stack du siège
+      const cont=$('#seatsContainer'); const seatEls=cont.querySelectorAll('.seat');
+      const el=seatEls[seatIdx-1]; if(!el) return;
+      const input=el.querySelector('.stack'); if(input){ input.focus(); input.select && input.select(); }
+    });
+
+    if(hasPlayer){
+      makeItem("Remplacer par un autre joueur", ()=>openAssignModal(seatIdx));
+      makeItem("Retirer du siège", ()=>{
+        state.seats.map[seatIdx].playerId=null; save(); drawSeats();
+      }, true);
+    } else {
+      makeItem("Assigner un joueur…", ()=>openAssignModal(seatIdx));
     }
-    const players=Object.values(state.players);
-    if(players.length===0){ alert("Aucun joueur enregistré."); return; }
-    const choice=prompt("Nom/alias exact:\n"+players.map(p=>p.alias||p.name||p.id).join(", "));
-    if(!choice) return;
-    const found=players.find(p=>(p.name||"").toLowerCase()===choice.toLowerCase()||(p.alias||"").toLowerCase()===choice.toLowerCase());
-    if(!found){ alert("Introuvable."); return; }
-    state.seats.map[seatIdx].playerId=found.id; save(); drawSeats();
+
+    $('#seatActionModal').style.display='flex';
+    $('#samClose').onclick=()=> $('#seatActionModal').style.display='none';
+  }
+
+  /* ---------- Assignation: modal recherche + avatars ---------- */
+  function openAssignModal(seatIdx){
+    currentSeatForAssign = seatIdx;
+    $('#amTitle').textContent = "Assigner un joueur – Siège " + seatIdx;
+    const inp = $('#amSearch'); inp.value="";
+    renderAssignList(""); // liste complète
+    $('#assignModal').style.display='flex';
+    setTimeout(()=> inp.focus(), 50);
+    $('#amCancel').onclick=()=> { $('#assignModal').style.display='none'; currentSeatForAssign=null; };
+    inp.oninput = ()=> renderAssignList(inp.value.trim().toLowerCase());
+  }
+
+  function renderAssignList(q){
+    const list=$('#amList'); list.innerHTML='';
+    const players = Object.values(state.players).sort((a,b)=>(a.alias||a.name||"").localeCompare(b.alias||b.name||""));
+    const filtered = q ? players.filter(p=>{
+      const t=[p.name,p.alias,(p.tags||[]).join(" ")].join(" ").toLowerCase();
+      return t.includes(q);
+    }) : players;
+
+    // Proposition de création si aucune correspondance stricte
+    if(q){
+      const existsExact = players.some(p=>(p.name||"").toLowerCase()===q || (p.alias||"").toLowerCase()===q);
+      const item=document.createElement('div'); item.className='item';
+      item.innerHTML = `<div style="flex:1">Créer “${escapeHtml(q)}”</div><div class="badge">nouveau</div>`;
+      item.onclick=()=>{
+        const id=createPlayer({name:q,alias:""});
+        state.seats.map[currentSeatForAssign].playerId = id; save(); drawSeats(); renderPlayers();
+        $('#assignModal').style.display='none'; currentSeatForAssign=null;
+      };
+      list.appendChild(item);
+      if(!filtered.length && existsExact){ /* si exact existe déjà, on n’ajoute pas d’autre item ici */ }
+    }
+
+    filtered.forEach(p=>{
+      const row=document.createElement('div'); row.className='item';
+      row.innerHTML = `
+        <img class="avatar sm" src="${p.photo||''}" alt="">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.alias||p.name||'—')}</div>
+            <div class="badge">${(p.tags||[]).slice(0,2).join(' · ')}</div>
+          </div>
+          <div class="muted" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml((p.name && p.alias)? p.name+" ("+p.alias+")" : (p.name||p.alias||""))}</div>
+        </div>`;
+      row.onclick=()=>{
+        if(currentSeatForAssign==null) return;
+        state.seats.map[currentSeatForAssign].playerId=p.id; save(); drawSeats(); renderPlayers();
+        $('#assignModal').style.display='none'; currentSeatForAssign=null;
+      };
+      list.appendChild(row);
+    });
+
+    if(!list.children.length){
+      const empty=document.createElement('div'); empty.className='item';
+      empty.innerHTML='<div class="muted" style="flex:1">Aucun joueur. Tape pour créer.</div>';
+      list.appendChild(empty);
+    }
+  }
+
+  /* ---------- Seat picker (depuis l’onglet Joueurs ou fiche) ---------- */
+  function openSeatPickerForPlayer(playerId){
+    const list=$('#spList'); list.innerHTML='';
+    const n=state.seats.count;
+    const used=new Set(Object.values(state.seats.map).filter(s=>s.playerId).map(s=>s.playerId));
+
+    // Les sièges libres en haut
+    const free=[], taken=[];
+    for(let i=1;i<=n;i++){
+      const s=state.seats.map[i];
+      if(s && s.playerId) taken.push(i); else free.push(i);
+    }
+    const makeRow=(i, isFree)=>{
+      const row=document.createElement('div'); row.className='item';
+      const right=isFree?'<div class="badge">libre</div>':'<div class="badge">occupé</div>';
+      row.innerHTML=`<div style="flex:1">Siège ${i}</div>${right}`;
+      row.onclick=()=>{
+        if(!isFree){
+          if(!confirm("Remplacer le joueur au siège "+i+" ?")) return;
+        }
+        state.seats.map[i].playerId=playerId; save(); drawSeats(); renderPlayers();
+        $('#seatPickerModal').style.display='none';
+      };
+      list.appendChild(row);
+    };
+    free.forEach(i=>makeRow(i,true));
+    if(taken.length){
+      const sep=document.createElement('div'); sep.className='item'; sep.innerHTML='<div class="muted">Sièges occupés</div>'; sep.style.cursor='default';
+      list.appendChild(sep);
+      taken.forEach(i=>makeRow(i,false));
+    }
+
+    $('#seatPickerModal').style.display='flex';
+    $('#spCancel').onclick=()=> $('#seatPickerModal').style.display='none';
   }
 
   /* ---------- Notes rapides ---------- */
   function openSeatNoteModal(seatIdx){
-    document.getElementById('snmTitle').textContent="Note rapide – Siège "+seatIdx;
-    const ta=document.getElementById('snmText'); ta.value=""; ta.focus();
+    $('#snmTitle').textContent="Note rapide – Siège "+seatIdx;
+    const ta=$('#snmText'); ta.value=""; ta.focus();
     const saveNote=()=>{
       const t=ta.value.trim(); if(!t){ alert("Note vide."); return; }
       state.seats.map[seatIdx].notes.push(t);
       const pid=state.seats.map[seatIdx].playerId;
       if(pid){ const p=state.players[pid]; p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t; }
       save(); drawSeats(); renderPlayers();
-      document.getElementById('seatNoteModal').style.display='none';
+      $('#seatNoteModal').style.display='none';
     };
-    document.getElementById('snmSave').onclick=saveNote;
+    $('#snmSave').onclick=saveNote;
     ta.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveNote(); } };
-    document.getElementById('snmClose').onclick=()=> document.getElementById('seatNoteModal').style.display='none';
-    document.getElementById('seatNoteModal').style.display='flex';
+    $('#snmClose').onclick=()=> $('#seatNoteModal').style.display='none';
+    $('#seatNoteModal').style.display='flex';
   }
 
   /* ---------- Joueurs ---------- */
   function createPlayer({name,alias}){ const id=uid(); state.players[id]={id,name,alias,tags:[],notes:"",lastSeenWhere:"",lastSeenWhen:"",photo:null}; save(); return id; }
+
   function renderPlayers(){
-    const q=(document.getElementById('searchInput').value||'').toLowerCase();
-    const list=document.getElementById('playersList'); list.innerHTML='';
+    const q=($('#searchInput').value||'').toLowerCase();
+    const list=$('#playersList'); list.innerHTML='';
     const players=Object.values(state.players).sort((a,b)=>(a.alias||a.name||"").localeCompare(b.alias||b.name||""));
     players.forEach(p=>{
       const text=[p.name,p.alias,(p.tags||[]).join(" "),p.notes].join(" ").toLowerCase(); if(q && !text.includes(q)) return;
-      const row=document.createElement('div'); row.className='card'; row.innerHTML=`
+      const row=document.createElement('div'); row.className='card';
+      row.innerHTML=`
         <div class="player-row">
           <img class="avatar sm" src="${p.photo||''}" alt=""/>
           <div style="flex:1">
@@ -379,47 +565,54 @@ textarea{min-height:110px;resize:vertical}
             </div>
             <div class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml((p.notes||'').split('\n').slice(-1)[0]||'')}</div>
           </div>
-          <button class="btn" data-id="${p.id}" type="button">Ouvrir</button>
+          <div class="row">
+            <button class="btn" data-open="${p.id}" type="button">Ouvrir</button>
+            <button class="btn" data-assign="${p.id}" type="button">Assigner</button>
+          </div>
         </div>`;
-      row.querySelector('button').onclick=()=>openPlayerModal(p.id);
+      row.querySelector('[data-open]').onclick=()=>openPlayerModal(p.id);
+      row.querySelector('[data-assign]').onclick=()=>openSeatPickerForPlayer(p.id);
       list.appendChild(row);
     });
   }
-  function openPlayerModal(id){
-    const p=state.players[id]; if(!p) return;
-    document.getElementById('pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
-    document.getElementById('pmName').value=p.name||"";
-    document.getElementById('pmAlias').value=p.alias||"";
-    document.getElementById('pmAvatar').src=p.photo||"";
-    document.getElementById('pmNotes').value=p.notes||"";
-    document.getElementById('pmLastSeenWhere').value=p.lastSeenWhere||"";
-    document.getElementById('pmLastSeenWhen').value=p.lastSeenWhen||"";
-    renderPlayerTagChips(p);
-    document.getElementById('playerModal').style.display='flex';
 
-    document.getElementById('pmDelete').onclick=()=>{
+  function openPlayerModal(id){
+    const p=state.players[id]; if(!p) return; currentPlayerInModal=id;
+    $('#pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
+    $('#pmName').value=p.name||"";
+    $('#pmAlias').value=p.alias||"";
+    $('#pmAvatar').src=p.photo||"";
+    $('#pmNotes').value=p.notes||"";
+    $('#pmLastSeenWhere').value=p.lastSeenWhere||"";
+    $('#pmLastSeenWhen').value=p.lastSeenWhen||"";
+    renderPlayerTagChips(p);
+    $('#playerModal').style.display='flex';
+
+    $('#pmAssignHere').onclick=()=> openSeatPickerForPlayer(id);
+
+    $('#pmDelete').onclick=()=>{
       if(!confirm("Supprimer ce joueur ?")) return;
       Object.values(state.seats.map).forEach(s=>{ if(s.playerId===p.id) s.playerId=null; });
-      delete state.players[p.id]; save(); document.getElementById('playerModal').style.display='none'; renderPlayers(); drawSeats();
+      delete state.players[p.id]; save(); $('#playerModal').style.display='none'; renderPlayers(); drawSeats();
     };
-    document.getElementById('pmSave').onclick=()=>{
-      p.name=document.getElementById('pmName').value.trim();
-      p.alias=document.getElementById('pmAlias').value.trim();
-      p.notes=document.getElementById('pmNotes').value;
-      p.lastSeenWhere=document.getElementById('pmLastSeenWhere').value.trim();
-      p.lastSeenWhen=document.getElementById('pmLastSeenWhen').value;
-      save(); document.getElementById('playerModal').style.display='none'; renderPlayers(); drawSeats();
+    $('#pmSave').onclick=()=>{
+      p.name=$('#pmName').value.trim();
+      p.alias=$('#pmAlias').value.trim();
+      p.notes=$('#pmNotes').value;
+      p.lastSeenWhere=$('#pmLastSeenWhere').value.trim();
+      p.lastSeenWhen=$('#pmLastSeenWhen').value;
+      save(); $('#playerModal').style.display='none'; renderPlayers(); drawSeats();
     };
-    document.getElementById('pmClose').onclick=()=> document.getElementById('playerModal').style.display='none';
+    $('#pmClose').onclick=()=> $('#playerModal').style.display='none';
 
-    document.getElementById('pmPhoto').onchange=async (e)=>{
+    $('#pmPhoto').onchange=async (e)=>{
       const file=e.target.files[0]; if(!file) return;
       const dataUrl=await fileToResizedDataURL(file,256,256);
-      p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
+      p.photo=dataUrl; $('#pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
     };
   }
   function renderPlayerTagChips(p){
-    const cont=document.getElementById('pmTagList'); cont.innerHTML='';
+    const cont=$('#pmTagList'); cont.innerHTML='';
     customTags.forEach(tag=>{
       const el=document.createElement('div'); el.className='pill'; el.textContent=tag; el.style.cursor='pointer';
       if(p.tags&&p.tags.includes(tag)) el.style.outline='2px solid var(--accent)';
@@ -449,24 +642,22 @@ textarea{min-height:110px;resize:vertical}
   }
 
   /* ---------- Export / Import / Wipe ---------- */
-  document.getElementById('btnExportJSON').onclick=()=>{
-    download('poker-notes.json', JSON.stringify(state,null,2), 'application/json');
-  };
-  document.getElementById('btnImport').onclick=()=>{
-    const f=document.getElementById('importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
+  $('#btnExportJSON').onclick=()=>{ download('poker-notes.json', JSON.stringify(state,null,2), 'application/json'); };
+  $('#btnImport').onclick=()=>{
+    const f=$('#importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
     const rdr=new FileReader(); rdr.onload=e=>{
       try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.');
         state=obj; ensureSeatDefaults(); save(); drawSeats(); renderPlayers(); alert('Import OK.');
       } catch(err){ alert('Erreur import.'); }
     }; rdr.readAsText(f);
   };
-  document.getElementById('btnWipe').onclick=()=>{
+  $('#btnWipe').onclick=()=>{
     if(!confirm('Effacer TOUTES les données ?')) return;
     localStorage.removeItem(LS_KEY); state={players:{},seats:{count:9,tableName:'',map:{}}}; initSeats(9); save(); drawSeats(); renderPlayers();
   };
 
   /* ---------- PIN settings ---------- */
-  document.getElementById('btnSetPin').onclick=()=>{
+  $('#btnSetPin').onclick=()=>{
     const cur=getPin();
     const p1=prompt("Nouveau PIN (exactement 4 chiffres):", cur||"");
     if(!p1) return;
@@ -475,26 +666,26 @@ textarea{min-height:110px;resize:vertical}
     if(p2!==p1){ alert("Les deux PIN ne correspondent pas."); return; }
     setPin(p1); alert("PIN enregistré. Ferme et rouvre pour tester.");
   };
-  document.getElementById('btnRemovePin').onclick=()=>{
+  $('#btnRemovePin').onclick=()=>{
     if(!getPin()) { alert("Aucun PIN défini."); return; }
     if(confirm("Retirer le PIN ?")){ setPin(""); alert("PIN retiré."); }
   };
 
   /* ---------- Wiring global ---------- */
-  document.getElementById('seatCount').onchange=e=>{ const n=parseInt(e.target.value,10); initSeats(n); save(); drawSeats(true); };
-  document.getElementById('tableName').oninput=e=>{ state.seats.tableName=e.target.value; save(); };
-  document.getElementById('btnClearTable').onclick=()=>{
+  $('#seatCount').onchange=e=>{ const n=parseInt(e.target.value,10); initSeats(n); save(); drawSeats(true); };
+  $('#tableName').oninput=e=>{ state.seats.tableName=e.target.value; save(); };
+  $('#btnClearTable').onclick=()=>{
     if(!confirm('Retirer tous les joueurs de la table ?')) return;
     Object.keys(state.seats.map).forEach(k=>{ state.seats.map[k].playerId=null; state.seats.map[k].notes=[]; state.seats.map[k].stack=""; }); save(); drawSeats(true);
   };
-  document.getElementById('btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
-  document.getElementById('searchInput').oninput=renderPlayers;
+  $('#btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
+  $('#searchInput').oninput=renderPlayers;
 
   /* ---------- Init ---------- */
   load();
   if(!state.seats||!state.seats.map||!state.seats.count) initSeats(9);
   requestAnimationFrame(()=>{ drawSeats(true); renderQuickTags(); }); renderPlayers();
-  requirePinIfSet(); // affiche seulement un overlay opaque, sans changer le layout
+  requirePinIfSet(); // overlay noir seulement
 })();
 </script>
 </body>

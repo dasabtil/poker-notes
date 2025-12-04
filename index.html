@@ -10,7 +10,12 @@
 <style>
 :root{--bg:#0e0f10;--fg:#f2f2f2;--muted:#a5a7ab;--card:#1a1c1f;--accent:#4caf50;--danger:#e53935;--blue:#2196f3;--outline:#2a2d31}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Helvetica Neue",Arial}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Helvetica Neue",Arial;overscroll-behavior:contain}
+
+/* Empêche le menu contextuel iOS et la sélection/drag sur les éléments tactiles clés */
+img, .seat, .chip, .tab, .btn, .table-wrap, .table-circle, .avatar, .pill{
+  -webkit-touch-callout:none; user-select:none; -webkit-user-select:none; -webkit-user-drag:none;
+}
 .app{max-width:700px;margin:0 auto;padding:12px 12px 84px}
 .topbar{position:sticky;top:0;background:var(--bg);padding:8px 12px 10px;border-bottom:1px solid var(--outline);z-index:5}
 .tabs{display:flex;gap:8px;overflow-x:auto;padding:6px 0}
@@ -57,11 +62,18 @@ textarea{min-height:110px;resize:vertical}
 /* Generic modal/sheet */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:20}
 .sheet{width:100%;max-width:700px;background:var(--bg);border-radius:14px 14px 0 0;border:1px solid var(--outline);padding:12px 12px 14px}
+
+/* Assign modal: évite les sauts – layout colonne avec liste qui occupe le reste */
+#assignModal .sheet{max-height:90vh;display:flex;flex-direction:column}
+#amList{flex:1 1 auto;overflow:auto;border:1px solid var(--outline);border-radius:10px}
 .list-scroll{max-height:50vh;overflow:auto;border:1px solid var(--outline);border-radius:10px}
 .item{display:flex;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--outline);cursor:pointer}
 .item:last-child{border-bottom:none}
 .item:hover{background:#111318}
 .badge{padding:2px 6px;border-radius:8px;border:1px solid var(--outline);font-size:12px;color:var(--muted)}
+
+/* Verrouillage du scroll de la page quand un modal est ouvert */
+body.modal-open{overflow:hidden}
 </style>
 </head>
 <body>
@@ -171,13 +183,13 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <!-- MODALS: Player editor -->
+  <!-- MODALS -->
   <div class="modal" id="playerModal">
     <div class="sheet">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 id="pmTitle">Joueur</h3>
         <div class="row">
-          <button class="btn" id="pmAssignHere" type="button" title="Assigner à la table">Assigner</button>
+          <button class="btn" id="pmAssignHere" type="button">Assigner</button>
           <button class="btn btn-danger" id="pmDelete" type="button">Supprimer</button>
         </div>
       </div>
@@ -205,7 +217,6 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <!-- MODAL: Seat quick note -->
   <div class="modal" id="seatNoteModal">
     <div class="sheet">
       <h3 id="snmTitle">Note rapide – Siège</h3>
@@ -215,33 +226,28 @@ textarea{min-height:110px;resize:vertical}
     </div>
   </div>
 
-  <!-- MODAL: Seat action menu (long-press) -->
   <div class="modal" id="seatActionModal">
     <div class="sheet">
       <h3 id="samTitle">Actions – Siège</h3>
       <div class="spacer"></div>
-      <div class="list-scroll" id="samList">
-        <!-- items injected -->
-      </div>
+      <div class="list-scroll" id="samList"></div>
       <div class="spacer"></div>
       <div class="row"><button class="btn" id="samClose" type="button">Fermer</button></div>
     </div>
   </div>
 
-  <!-- MODAL: Assign player to seat (search + avatars) -->
   <div class="modal" id="assignModal">
     <div class="sheet">
       <h3 id="amTitle">Assigner un joueur</h3>
       <div class="spacer"></div>
       <input id="amSearch" placeholder="Rechercher / créer… (ex: Nuno)" />
       <div class="spacer"></div>
-      <div class="list-scroll" id="amList"></div>
+      <div id="amList"></div>
       <div class="spacer"></div>
       <div class="row"><button class="btn" id="amCancel" type="button">Annuler</button></div>
     </div>
   </div>
 
-  <!-- MODAL: Seat picker (from players list) -->
   <div class="modal" id="seatPickerModal">
     <div class="sheet">
       <h3 id="spTitle">Choisir un siège</h3>
@@ -259,14 +265,16 @@ textarea{min-height:110px;resize:vertical}
   const customTags=["Slowplayer","Hit or Fold","Believer","Non believer","Nit","Value thin","Sizing face up","Stabeur","CS","Donk any pair","Recrea fold SB","Fastplay FD deep","Fastplayer","Trop passif","Baleine","LAG","Snapcall bluffcatch"];
 
   let state={players:{},seats:{count:9,tableName:"",map:{}}};
-  let currentSeatForMenu=null;   // siège visé par le long-press (menu)
-  let currentSeatForAssign=null; // siège visé par assignModal
-  let currentPlayerInModal=null; // id joueur ouvert
+  let currentSeatForMenu=null, currentSeatForAssign=null, currentPlayerInModal=null;
 
   const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
   const uid=()=>Math.random().toString(36).slice(2,10);
   const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert("Stockage plein. Exporte puis nettoie."); } };
   const load=()=>{ const raw=localStorage.getItem(LS_KEY); if(raw){ try{ const o=JSON.parse(raw); if(o.players && o.seats) state=o; }catch(e){} } };
+
+  /* Bloque le menu contextuel global (iOS image long-press) + dragstart */
+  document.addEventListener('contextmenu', (e)=>{ e.preventDefault(); }, {capture:true});
+  document.addEventListener('dragstart', (e)=>{ e.preventDefault(); }, {capture:true});
 
   /* ---------- PIN ---------- */
   function getPin(){ return localStorage.getItem(PIN_KEY)||""; }
@@ -276,9 +284,10 @@ textarea{min-height:110px;resize:vertical}
     const lock=$('#pinLock');
     lock.style.display='flex'; lock.setAttribute('aria-hidden','false');
     $('#pinMsg').textContent="Entre ton code PIN (4 chiffres)";
-    const input=$('#pinInput'); input.value=""; setTimeout(()=>input.focus(),50);
+    const input=$('#pinInput'); input.value="";
+    setTimeout(()=>{ if(input && input.focus) try{ input.focus({preventScroll:true}); }catch{} },50);
     const validate=()=>{ if(input.value===pin){ lock.style.display='none'; lock.setAttribute('aria-hidden','true'); }
-                         else { $('#pinMsg').textContent="PIN incorrect. Réessaie."; input.value=""; input.focus(); } };
+                         else { $('#pinMsg').textContent="PIN incorrect. Réessaie."; input.value=""; input.focus({preventScroll:true}); } };
     $('#pinOk').onclick=validate;
     $('#pinCancel').onclick=()=>{ location.href='about:blank'; };
     input.onkeydown=(e)=>{ if(e.key==='Enter') validate(); };
@@ -339,7 +348,8 @@ textarea{min-height:110px;resize:vertical}
 
       const p=seat.playerId?state.players[seat.playerId]:null;
       if(p && p.photo){
-        const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar'; el.appendChild(av);
+        const av=document.createElement('img'); av.src=p.photo; av.alt=''; av.className='seat-avatar';
+        av.setAttribute('draggable','false'); el.appendChild(av);
       }else{
         const ph=document.createElement('div'); ph.className='placeholder'; ph.innerHTML=`<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="8" r="4" stroke-width="1.5"></circle>
@@ -352,7 +362,7 @@ textarea{min-height:110px;resize:vertical}
       stackInput.className='stack'; stackInput.placeholder='ex: 35bb'; stackInput.inputMode='text';
       stackInput.autocapitalize='off'; stackInput.autocomplete='off'; stackInput.spellcheck=false;
       stackInput.value=seat.stack||'';
-      ['touchstart','touchmove','touchend','mousedown','mouseup','click'].forEach(evt=>stackInput.addEventListener(evt, ev=>ev.stopPropagation(), {passive:true}));
+      ['touchstart','touchmove','touchend','mousedown','mouseup','click','contextmenu'].forEach(evt=>stackInput.addEventListener(evt, ev=>ev.stopPropagation(), {passive:true}));
       stackInput.addEventListener('input', ()=>{ state.seats.map[i].stack=stackInput.value.trim(); save(); });
       el.appendChild(stackInput);
 
@@ -370,6 +380,7 @@ textarea{min-height:110px;resize:vertical}
         lastTap=now;
         if(dt<350) openOrAssign(i);
       },{passive:true});
+      el.addEventListener('contextmenu',(e)=>e.preventDefault(), {capture:true});
 
       let md=false, t0m=0, lastClick=0;
       el.addEventListener('mousedown',(e)=>{ if(e.target===stackInput) return; md=true; t0m=Date.now(); startLong(); });
@@ -390,7 +401,7 @@ textarea{min-height:110px;resize:vertical}
   function openOrAssign(seatIdx){
     const s=state.seats.map[seatIdx];
     if(s.playerId){ openPlayerModal(s.playerId, seatIdx); }
-    else { openAssignModal(seatIdx); } // plus de prompt -> modal de sélection
+    else { openAssignModal(seatIdx); }
   }
 
   /* ---------- Menu d’actions (long-press) ---------- */
@@ -399,20 +410,17 @@ textarea{min-height:110px;resize:vertical}
     $('#samTitle').textContent = "Actions – Siège " + seatIdx;
     const seat = state.seats.map[seatIdx];
     const hasPlayer = !!(seat && seat.playerId);
+    const list = document.getElementById('samList'); list.innerHTML = "";
 
-    const list = $('#samList'); list.innerHTML = "";
-
-    // Item utilitaire
     const makeItem=(label, fn, danger=false)=>{
       const div=document.createElement('div'); div.className='item'; div.innerHTML=`<div style="flex:1">${label}</div>`;
       if(danger){ div.style.borderLeft='4px solid var(--danger)'; }
-      div.onclick=()=>{ fn(); $('#seatActionModal').style.display='none'; };
+      div.onclick=()=>{ fn(); document.getElementById('seatActionModal').style.display='none'; document.body.classList.remove('modal-open'); };
       list.appendChild(div);
     };
 
     makeItem("Ajouter une note rapide", ()=>openSeatNoteModal(seatIdx));
     makeItem("Modifier le stack (focus)", ()=>{
-      // met le focus sur l’input du stack du siège
       const cont=$('#seatsContainer'); const seatEls=cont.querySelectorAll('.seat');
       const el=seatEls[seatIdx-1]; if(!el) return;
       const input=el.querySelector('.stack'); if(input){ input.focus(); input.select && input.select(); }
@@ -427,48 +435,65 @@ textarea{min-height:110px;resize:vertical}
       makeItem("Assigner un joueur…", ()=>openAssignModal(seatIdx));
     }
 
-    $('#seatActionModal').style.display='flex';
-    $('#samClose').onclick=()=> $('#seatActionModal').style.display='none';
+    document.getElementById('seatActionModal').style.display='flex';
+    document.getElementById('samClose').onclick=()=>{ document.getElementById('seatActionModal').style.display='none'; document.body.classList.remove('modal-open'); };
+    document.body.classList.add('modal-open');
   }
 
-  /* ---------- Assignation: modal recherche + avatars ---------- */
+  /* ---------- Assignation: modal recherche + avatars (anti-saut clavier) ---------- */
   function openAssignModal(seatIdx){
     currentSeatForAssign = seatIdx;
-    $('#amTitle').textContent = "Assigner un joueur – Siège " + seatIdx;
-    const inp = $('#amSearch'); inp.value="";
-    renderAssignList(""); // liste complète
-    $('#assignModal').style.display='flex';
-    setTimeout(()=> inp.focus(), 50);
-    $('#amCancel').onclick=()=> { $('#assignModal').style.display='none'; currentSeatForAssign=null; };
-    inp.oninput = ()=> renderAssignList(inp.value.trim().toLowerCase());
+    document.getElementById('amTitle').textContent = "Assigner un joueur – Siège " + seatIdx;
+    const modal = document.getElementById('assignModal');
+    const inp = document.getElementById('amSearch');
+    const list = document.getElementById('amList');
+    list.innerHTML='';
+    renderAssignList("", list); // liste complète
+    modal.style.display='flex';
+    document.body.classList.add('modal-open');
+    // Focus sans scroll (iOS 17+ ok, fallback silencieux)
+    setTimeout(()=>{ try{ inp.focus({preventScroll:true}); }catch{ inp.focus(); } }, 50);
+    document.getElementById('amCancel').onclick=()=> {
+      modal.style.display='none';
+      document.body.classList.remove('modal-open');
+      currentSeatForAssign=null;
+    };
+    inp.oninput = ()=>{
+      // Préserve la position de scroll de la liste pendant le filtrage
+      const keepY = list.scrollTop;
+      renderAssignList(inp.value.trim().toLowerCase(), list);
+      // Si l’utilisateur est déjà en train de scroller, on garde la position;
+      // sinon on remonte en haut si la recherche change radicalement.
+      if (keepY > 0) list.scrollTop = keepY; else list.scrollTop = 0;
+    };
   }
 
-  function renderAssignList(q){
-    const list=$('#amList'); list.innerHTML='';
+  function renderAssignList(q, listEl){
+    const list = listEl || document.getElementById('amList');
+    list.innerHTML='';
     const players = Object.values(state.players).sort((a,b)=>(a.alias||a.name||"").localeCompare(b.alias||b.name||""));
     const filtered = q ? players.filter(p=>{
       const t=[p.name,p.alias,(p.tags||[]).join(" ")].join(" ").toLowerCase();
       return t.includes(q);
     }) : players;
 
-    // Proposition de création si aucune correspondance stricte
     if(q){
-      const existsExact = players.some(p=>(p.name||"").toLowerCase()===q || (p.alias||"").toLowerCase()===q);
       const item=document.createElement('div'); item.className='item';
       item.innerHTML = `<div style="flex:1">Créer “${escapeHtml(q)}”</div><div class="badge">nouveau</div>`;
       item.onclick=()=>{
         const id=createPlayer({name:q,alias:""});
         state.seats.map[currentSeatForAssign].playerId = id; save(); drawSeats(); renderPlayers();
-        $('#assignModal').style.display='none'; currentSeatForAssign=null;
+        document.getElementById('assignModal').style.display='none';
+        document.body.classList.remove('modal-open');
+        currentSeatForAssign=null;
       };
       list.appendChild(item);
-      if(!filtered.length && existsExact){ /* si exact existe déjà, on n’ajoute pas d’autre item ici */ }
     }
 
     filtered.forEach(p=>{
       const row=document.createElement('div'); row.className='item';
       row.innerHTML = `
-        <img class="avatar sm" src="${p.photo||''}" alt="">
+        <img class="avatar sm" src="${p.photo||''}" alt="" draggable="false">
         <div style="flex:1;min-width:0">
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
             <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.alias||p.name||'—')}</div>
@@ -479,7 +504,9 @@ textarea{min-height:110px;resize:vertical}
       row.onclick=()=>{
         if(currentSeatForAssign==null) return;
         state.seats.map[currentSeatForAssign].playerId=p.id; save(); drawSeats(); renderPlayers();
-        $('#assignModal').style.display='none'; currentSeatForAssign=null;
+        document.getElementById('assignModal').style.display='none';
+        document.body.classList.remove('modal-open');
+        currentSeatForAssign=null;
       };
       list.appendChild(row);
     });
@@ -491,13 +518,10 @@ textarea{min-height:110px;resize:vertical}
     }
   }
 
-  /* ---------- Seat picker (depuis l’onglet Joueurs ou fiche) ---------- */
+  /* ---------- Seat picker ---------- */
   function openSeatPickerForPlayer(playerId){
-    const list=$('#spList'); list.innerHTML='';
+    const list=document.getElementById('spList'); list.innerHTML='';
     const n=state.seats.count;
-    const used=new Set(Object.values(state.seats.map).filter(s=>s.playerId).map(s=>s.playerId));
-
-    // Les sièges libres en haut
     const free=[], taken=[];
     for(let i=1;i<=n;i++){
       const s=state.seats.map[i];
@@ -505,14 +529,14 @@ textarea{min-height:110px;resize:vertical}
     }
     const makeRow=(i, isFree)=>{
       const row=document.createElement('div'); row.className='item';
-      const right=isFree?'<div class="badge">libre</div>':'<div class="badge">occupé</div>';
-      row.innerHTML=`<div style="flex:1">Siège ${i}</div>${right}`;
+      row.innerHTML=`<div style="flex:1">Siège ${i}</div>${isFree?'<div class="badge">libre</div>':'<div class="badge">occupé</div>'}`;
       row.onclick=()=>{
         if(!isFree){
           if(!confirm("Remplacer le joueur au siège "+i+" ?")) return;
         }
         state.seats.map[i].playerId=playerId; save(); drawSeats(); renderPlayers();
-        $('#seatPickerModal').style.display='none';
+        document.getElementById('seatPickerModal').style.display='none';
+        document.body.classList.remove('modal-open');
       };
       list.appendChild(row);
     };
@@ -523,41 +547,46 @@ textarea{min-height:110px;resize:vertical}
       taken.forEach(i=>makeRow(i,false));
     }
 
-    $('#seatPickerModal').style.display='flex';
-    $('#spCancel').onclick=()=> $('#seatPickerModal').style.display='none';
+    document.getElementById('seatPickerModal').style.display='flex';
+    document.getElementById('spCancel').onclick=()=>{ document.getElementById('seatPickerModal').style.display='none'; document.body.classList.remove('modal-open'); };
+    document.body.classList.add('modal-open');
   }
 
   /* ---------- Notes rapides ---------- */
   function openSeatNoteModal(seatIdx){
-    $('#snmTitle').textContent="Note rapide – Siège "+seatIdx;
-    const ta=$('#snmText'); ta.value=""; ta.focus();
+    document.getElementById('snmTitle').textContent="Note rapide – Siège "+seatIdx;
+    const ta=document.getElementById('snmText'); ta.value="";
+    document.getElementById('seatNoteModal').style.display='flex';
+    document.body.classList.add('modal-open');
+    setTimeout(()=>{ try{ ta.focus({preventScroll:true}); }catch{ ta.focus(); } }, 50);
+
     const saveNote=()=>{
       const t=ta.value.trim(); if(!t){ alert("Note vide."); return; }
       state.seats.map[seatIdx].notes.push(t);
       const pid=state.seats.map[seatIdx].playerId;
       if(pid){ const p=state.players[pid]; p.notes=(p.notes||"")+(p.notes? "\n":"")+"("+new Date().toLocaleString()+") "+t; }
       save(); drawSeats(); renderPlayers();
-      $('#seatNoteModal').style.display='none';
+      document.getElementById('seatNoteModal').style.display='none';
+      document.body.classList.remove('modal-open');
     };
-    $('#snmSave').onclick=saveNote;
+    document.getElementById('snmSave').onclick=saveNote;
     ta.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveNote(); } };
-    $('#snmClose').onclick=()=> $('#seatNoteModal').style.display='none';
-    $('#seatNoteModal').style.display='flex';
+    document.getElementById('snmClose').onclick=()=>{ document.getElementById('seatNoteModal').style.display='none'; document.body.classList.remove('modal-open'); };
   }
 
   /* ---------- Joueurs ---------- */
   function createPlayer({name,alias}){ const id=uid(); state.players[id]={id,name,alias,tags:[],notes:"",lastSeenWhere:"",lastSeenWhen:"",photo:null}; save(); return id; }
 
   function renderPlayers(){
-    const q=($('#searchInput').value||'').toLowerCase();
-    const list=$('#playersList'); list.innerHTML='';
+    const q=(document.getElementById('searchInput').value||'').toLowerCase();
+    const list=document.getElementById('playersList'); list.innerHTML='';
     const players=Object.values(state.players).sort((a,b)=>(a.alias||a.name||"").localeCompare(b.alias||b.name||""));
     players.forEach(p=>{
       const text=[p.name,p.alias,(p.tags||[]).join(" "),p.notes].join(" ").toLowerCase(); if(q && !text.includes(q)) return;
       const row=document.createElement('div'); row.className='card';
       row.innerHTML=`
         <div class="player-row">
-          <img class="avatar sm" src="${p.photo||''}" alt=""/>
+          <img class="avatar sm" src="${p.photo||''}" alt="" draggable="false"/>
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;gap:6px;align-items:center">
               <strong>${escapeHtml(p.alias||p.name||'—')}</strong>
@@ -578,41 +607,42 @@ textarea{min-height:110px;resize:vertical}
 
   function openPlayerModal(id){
     const p=state.players[id]; if(!p) return; currentPlayerInModal=id;
-    $('#pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
-    $('#pmName').value=p.name||"";
-    $('#pmAlias').value=p.alias||"";
-    $('#pmAvatar').src=p.photo||"";
-    $('#pmNotes').value=p.notes||"";
-    $('#pmLastSeenWhere').value=p.lastSeenWhere||"";
-    $('#pmLastSeenWhen').value=p.lastSeenWhen||"";
+    document.getElementById('pmTitle').textContent="Joueur • "+(p.alias||p.name||"");
+    document.getElementById('pmName').value=p.name||"";
+    document.getElementById('pmAlias').value=p.alias||"";
+    document.getElementById('pmAvatar').src=p.photo||"";
+    document.getElementById('pmNotes').value=p.notes||"";
+    document.getElementById('pmLastSeenWhere').value=p.lastSeenWhere||"";
+    document.getElementById('pmLastSeenWhen').value=p.lastSeenWhen||"";
     renderPlayerTagChips(p);
-    $('#playerModal').style.display='flex';
+    document.getElementById('playerModal').style.display='flex';
+    document.body.classList.add('modal-open');
 
-    $('#pmAssignHere').onclick=()=> openSeatPickerForPlayer(id);
+    document.getElementById('pmAssignHere').onclick=()=> openSeatPickerForPlayer(id);
 
-    $('#pmDelete').onclick=()=>{
+    document.getElementById('pmDelete').onclick=()=>{
       if(!confirm("Supprimer ce joueur ?")) return;
       Object.values(state.seats.map).forEach(s=>{ if(s.playerId===p.id) s.playerId=null; });
-      delete state.players[p.id]; save(); $('#playerModal').style.display='none'; renderPlayers(); drawSeats();
+      delete state.players[p.id]; save(); document.getElementById('playerModal').style.display='none'; document.body.classList.remove('modal-open'); renderPlayers(); drawSeats();
     };
-    $('#pmSave').onclick=()=>{
-      p.name=$('#pmName').value.trim();
-      p.alias=$('#pmAlias').value.trim();
-      p.notes=$('#pmNotes').value;
-      p.lastSeenWhere=$('#pmLastSeenWhere').value.trim();
-      p.lastSeenWhen=$('#pmLastSeenWhen').value;
-      save(); $('#playerModal').style.display='none'; renderPlayers(); drawSeats();
+    document.getElementById('pmSave').onclick=()=>{
+      p.name=document.getElementById('pmName').value.trim();
+      p.alias=document.getElementById('pmAlias').value.trim();
+      p.notes=document.getElementById('pmNotes').value;
+      p.lastSeenWhere=document.getElementById('pmLastSeenWhere').value.trim();
+      p.lastSeenWhen=document.getElementById('pmLastSeenWhen').value;
+      save(); document.getElementById('playerModal').style.display='none'; document.body.classList.remove('modal-open'); renderPlayers(); drawSeats();
     };
-    $('#pmClose').onclick=()=> $('#playerModal').style.display='none';
+    document.getElementById('pmClose').onclick=()=> { document.getElementById('playerModal').style.display='none'; document.body.classList.remove('modal-open'); };
 
-    $('#pmPhoto').onchange=async (e)=>{
+    document.getElementById('pmPhoto').onchange=async (e)=>{
       const file=e.target.files[0]; if(!file) return;
       const dataUrl=await fileToResizedDataURL(file,256,256);
-      p.photo=dataUrl; $('#pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
+      p.photo=dataUrl; document.getElementById('pmAvatar').src=dataUrl; save(); renderPlayers(); drawSeats();
     };
   }
   function renderPlayerTagChips(p){
-    const cont=$('#pmTagList'); cont.innerHTML='';
+    const cont=document.getElementById('pmTagList'); cont.innerHTML='';
     customTags.forEach(tag=>{
       const el=document.createElement('div'); el.className='pill'; el.textContent=tag; el.style.cursor='pointer';
       if(p.tags&&p.tags.includes(tag)) el.style.outline='2px solid var(--accent)';
@@ -642,22 +672,22 @@ textarea{min-height:110px;resize:vertical}
   }
 
   /* ---------- Export / Import / Wipe ---------- */
-  $('#btnExportJSON').onclick=()=>{ download('poker-notes.json', JSON.stringify(state,null,2), 'application/json'); };
-  $('#btnImport').onclick=()=>{
-    const f=$('#importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
+  document.getElementById('btnExportJSON').onclick=()=>{ download('poker-notes.json', JSON.stringify(state,null,2), 'application/json'); };
+  document.getElementById('btnImport').onclick=()=>{
+    const f=document.getElementById('importFile').files[0]; if(!f){ alert('Choisis un fichier .json'); return; }
     const rdr=new FileReader(); rdr.onload=e=>{
       try{ const obj=JSON.parse(e.target.result); if(!obj.players||!obj.seats) throw new Error('Format inconnu.');
         state=obj; ensureSeatDefaults(); save(); drawSeats(); renderPlayers(); alert('Import OK.');
       } catch(err){ alert('Erreur import.'); }
     }; rdr.readAsText(f);
   };
-  $('#btnWipe').onclick=()=>{
+  document.getElementById('btnWipe').onclick=()=>{
     if(!confirm('Effacer TOUTES les données ?')) return;
     localStorage.removeItem(LS_KEY); state={players:{},seats:{count:9,tableName:'',map:{}}}; initSeats(9); save(); drawSeats(); renderPlayers();
   };
 
   /* ---------- PIN settings ---------- */
-  $('#btnSetPin').onclick=()=>{
+  document.getElementById('btnSetPin').onclick=()=>{
     const cur=getPin();
     const p1=prompt("Nouveau PIN (exactement 4 chiffres):", cur||"");
     if(!p1) return;
@@ -666,20 +696,20 @@ textarea{min-height:110px;resize:vertical}
     if(p2!==p1){ alert("Les deux PIN ne correspondent pas."); return; }
     setPin(p1); alert("PIN enregistré. Ferme et rouvre pour tester.");
   };
-  $('#btnRemovePin').onclick=()=>{
+  document.getElementById('btnRemovePin').onclick=()=>{
     if(!getPin()) { alert("Aucun PIN défini."); return; }
     if(confirm("Retirer le PIN ?")){ setPin(""); alert("PIN retiré."); }
   };
 
   /* ---------- Wiring global ---------- */
-  $('#seatCount').onchange=e=>{ const n=parseInt(e.target.value,10); initSeats(n); save(); drawSeats(true); };
-  $('#tableName').oninput=e=>{ state.seats.tableName=e.target.value; save(); };
-  $('#btnClearTable').onclick=()=>{
+  document.getElementById('seatCount').onchange=e=>{ const n=parseInt(e.target.value,10); initSeats(n); save(); drawSeats(true); };
+  document.getElementById('tableName').oninput=e=>{ state.seats.tableName=e.target.value; save(); };
+  document.getElementById('btnClearTable').onclick=()=>{
     if(!confirm('Retirer tous les joueurs de la table ?')) return;
     Object.keys(state.seats.map).forEach(k=>{ state.seats.map[k].playerId=null; state.seats.map[k].notes=[]; state.seats.map[k].stack=""; }); save(); drawSeats(true);
   };
-  $('#btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
-  $('#searchInput').oninput=renderPlayers;
+  document.getElementById('btnAddPlayer').onclick=()=>{ const name=prompt('Nom/Pseudo ?'); if(!name) return; const id=createPlayer({name:name.trim(),alias:''}); openPlayerModal(id); };
+  document.getElementById('searchInput').oninput=renderPlayers;
 
   /* ---------- Init ---------- */
   load();
